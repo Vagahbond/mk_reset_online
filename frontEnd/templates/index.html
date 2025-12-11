@@ -61,11 +61,12 @@
                                                         <span class="tag is-info">{{ loop.index }}</span>
                                                     {% endif %}
                                                 </td>
-                                                <td>{{ resultat[0] }}</td>
+                                                <td>{{ resultat.nom }}</td>
                                                 <td>
                                                     <div class="score-bar">
-                                                        <div class="score-fill" style="width: {{ (resultat.score / resultats[0].score * 100) }}%"></div>
-                                                            <span>{{ resultat[1] }}</span>
+                                                        {% set max_score = resultats[0].score if resultats else 1 %}
+                                                        <div class="score-fill" style="width: {{ (resultat.score / max_score * 100) }}%">
+                                                            <span>{{ resultat.score }}</span>
                                                         </div>
                                                     </div>
                                                 </td>

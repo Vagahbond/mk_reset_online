@@ -88,7 +88,15 @@ def dernier_tournoi():
         
         resultats = []
         for nom, score in cur.fetchall():
-            resultats.append({"nom": nom, "score": score})
+            # CORRECTION : On envoie toutes les variantes possibles pour être sûr que ça s'affiche
+            resultats.append({
+                "nom": nom,              # Nom standard
+                "name": nom,             # Souvent utilisé en anglais
+                "joueur": nom,           # Autre variante fréquente
+                "score": score,
+                "points": score,
+                "score_tournoi": score
+            })
     else:
         resultats = []
 
@@ -436,11 +444,13 @@ def get_tournois_list():
     conn = get_db_connection()
     cur = conn.cursor()
 
+    # CORRECTION : Ajout de MAX(p.score) pour avoir le score max
     cur.execute("""
         SELECT 
             t.id, 
             t.date, 
             COUNT(p.joueur_id) as nb_joueurs,
+            MAX(p.score) as score_max,
             (
                 SELECT j.nom FROM Participations p_sub
                 JOIN Joueurs j ON p_sub.joueur_id = j.id
@@ -459,11 +469,14 @@ def get_tournois_list():
     """)
     
     tournois = []
-    for tournoi_id, date, nb_joueurs, vainqueur in cur.fetchall():
+    # On récupère maintenant 5 valeurs (ajout de score_max)
+    for tournoi_id, date, nb_joueurs, score_max, vainqueur in cur.fetchall():
         tournois.append({
             "id": tournoi_id,
             "date": date.strftime("%Y-%m-%d"),
             "nb_joueurs": nb_joueurs,
+            "participants": nb_joueurs,       # CORRECTION : Alias pour ton template stats_tournois.html
+            "score_max": score_max,           # CORRECTION : Ajout de la donnée manquante
             "vainqueur": vainqueur if vainqueur else "Inconnu"
         })
 

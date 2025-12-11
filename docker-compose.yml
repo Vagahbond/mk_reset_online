@@ -1,13 +1,37 @@
+version: '3.8'
+
 services:
+  # Service Base de données (Nouveau !)
+  db:
+    image: postgres:13
+    volumes:
+      # Stockage persistant des données
+      - pg_data:/var/lib/postgresql/data
+      # Importation automatique de ton fichier SQL au premier lancement
+      - ./backEnd/db.sql:/docker-entrypoint-initdb.d/init.sql
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Service Backend (Modifié)
   backend:
     build:
-      context: ./backEnd  # <-- On pointe vers le dossier backEnd
+      context: ./backEnd
       dockerfile: Dockerfile.backend
     ports:
       - "8080:8080"
-    volumes:
-      - pg_data:/var/lib/postgresql/data
+    depends_on:
+      db:
+        condition: service_healthy
     environment:
+      - POSTGRES_HOST=db 
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=${POSTGRES_DB}
@@ -17,7 +41,7 @@ services:
 
   frontend:
     build:
-      context: ./frontEnd  # <-- On pointe vers le dossier frontEnd
+      context: ./frontEnd
       dockerfile: Dockerfile.frontend
     ports:
       - "5000:5000"
