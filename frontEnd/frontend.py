@@ -18,7 +18,7 @@ except KeyError as e:
     logger.critical(f"Variable d'environnement manquante : {e}")
     sys.exit(1)
 
-app.permanent_session_lifetime = timedelta(minutes=30)
+app.permanent_session_lifetime = timedelta(minutes=2)
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 

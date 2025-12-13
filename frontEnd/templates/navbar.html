@@ -80,6 +80,7 @@
   {% endif %}
 {% endwith %}
 
+{% if session.get('admin_token') %}
 <div id="session-warning-modal" class="modal">
   <div class="modal-background"></div>
   <div class="modal-card">
@@ -102,6 +103,7 @@
     </footer>
   </div>
 </div>
+{% endif %}
 
 <script>
   document.addEventListener('DOMContentLoaded', () => {
@@ -140,17 +142,16 @@
       });
     });
 
-    const logoutBtn = document.querySelector('a[href="/admin/logout"]');
+    const warningModal = document.getElementById('session-warning-modal');
     
-    if (logoutBtn) {
-      const lifetimeSeconds = {{ session_lifetime|default(900)|int }};
-      const warningTimeSeconds = 60; 
-      const timeBeforeWarning = (lifetimeSeconds - warningTimeSeconds) * 1000;
+    if (warningModal) {
+      const lifetimeSeconds = {{ session_lifetime|default(1800)|int }};
+      const warningDelaySeconds = 60; 
+      const timeBeforeWarning = (lifetimeSeconds - warningDelaySeconds) * 1000;
       
       if (timeBeforeWarning > 0) {
         setTimeout(() => {
-          const modal = document.getElementById('session-warning-modal');
-          modal.classList.add('is-active');
+          warningModal.classList.add('is-active');
         }, timeBeforeWarning);
       }
 
