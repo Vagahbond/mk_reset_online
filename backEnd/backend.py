@@ -210,17 +210,6 @@ def classement():
         logger.error(f"Erreur classement : {e}")
         return jsonify({"error": "Erreur serveur"}), 500
 
-@app.route('/joueurs/noms')
-def get_joueur_names():
-    try:
-        with get_db_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute("SELECT nom FROM Joueurs ORDER BY nom")
-                noms = [row[0] for row in cur.fetchall()]
-        return jsonify(noms)
-    except Exception as e:
-        logger.error(f"Erreur joueurs/noms : {e}")
-        return jsonify({"error": "Erreur serveur"}), 500
 
 @app.route('/stats/joueur/<nom>')
 def get_joueur_stats(nom):
@@ -321,6 +310,19 @@ def get_joueur_stats(nom):
     except Exception as e:
         logger.error(f"Erreur stats joueur : {e}")
         return jsonify({"error": "Erreur serveur"}), 500
+
+@app.route('/joueurs/noms')
+def get_joueur_names():
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT nom FROM Joueurs ORDER BY score_trueskill DESC NULLS LAST")
+                noms = [row[0] for row in cur.fetchall()]
+        return jsonify(noms)
+    except Exception as e:
+        logger.error(f"Erreur joueurs/noms : {e}")
+        return jsonify({"error": "Erreur serveur"}), 500
+
 
 @app.route('/stats/joueurs')
 def get_global_joueur_stats():

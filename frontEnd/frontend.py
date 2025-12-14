@@ -47,6 +47,43 @@ def backend_request(method, endpoint, data=None, params=None, headers=None):
         logger.error(f"Erreur connexion backend ({endpoint}): {e}")
         return None, 503
 
+@app.route('/joueurs/noms')
+def proxy_joueurs_noms():
+    # Le frontend demande la liste au backend (conteneur 'backend' port 8080)
+    try:
+        # On utilise le nom du service docker "backend"
+        response = requests.get('http://backend:8080/joueurs/noms')
+        return jsonify(response.json())
+    except Exception as e:
+        print(f"Erreur proxy joueurs: {e}")
+        return jsonify([])
+
+@app.route('/add-tournament', methods=['POST'])
+def proxy_add_tournament():
+    # Vérification que l'utilisateur est admin
+    if not session.get('admin_token'):
+        return jsonify({'status': 'error', 'message': 'Non autorisé'}), 403
+
+    try:
+        data = request.get_json()
+        
+        # On transfère la requête au Backend
+        # On ajoute le token admin dans les headers pour que le backend accepte
+        headers = {'X-Admin-Token': session.get('admin_token')}
+        
+        response = requests.post(
+            'http://backend:8080/add-tournament', 
+            json=data,
+            headers=headers
+        )
+        
+        # On renvoie la réponse du backend au navigateur
+        return jsonify(response.json()), response.status_code
+
+    except Exception as e:
+        print(f"Erreur proxy add_tournament: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+    
 @app.route('/')
 def index():
     data, status = backend_request('GET', '/dernier-tournoi')

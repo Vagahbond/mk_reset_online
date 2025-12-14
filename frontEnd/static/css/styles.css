@@ -53,3 +53,68 @@ input[type="submit"]:hover {
     color: #00aeff !important;
     text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.9) !important;
 }
+
+.player-list-container {
+    max-height: 60vh;
+    overflow-y: auto;
+    padding-right: 5px;
+}
+
+.player-list-container::-webkit-scrollbar {
+    width: 6px;
+}
+.player-list-container::-webkit-scrollbar-thumb {
+    background-color: #555;
+    border-radius: 3px;
+}
+
+.player-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 15px;
+    margin-bottom: 8px;
+    background-color: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: #e0e0e0;
+}
+
+.player-item:hover {
+    background-color: var(--primary-color);
+    color: white;
+    transform: translateX(5px);
+}
+
+.player-item.is-selected {
+    opacity: 0.4;
+    pointer-events: none;
+    background-color: #222;
+    border-color: transparent;
+}
+
+#participantsTable {
+    background-color: transparent;
+}
+#participantsTable th {
+    color: #fff;
+    border-bottom: 2px solid #555;
+}
+#participantsTable td {
+    border-bottom: 1px solid rgba(231, 9, 9, 0.1);
+    color: #ddd;
+    vertical-align: middle;
+}
+.table.is-hoverable tbody tr:not(.is-selected):hover {
+    background-color: rgba(240, 17, 17, 0.05);
+}
+
+.participant-row {
+    animation: slideIn 0.3s ease-out forwards;
+}
+@keyframes slideIn {
+    from { opacity: 0; transform: translateX(-10px); }
+    to { opacity: 1; transform: translateX(0); }
+}
