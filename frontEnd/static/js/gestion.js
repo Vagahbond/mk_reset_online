@@ -2,10 +2,10 @@ function getTierColor(rank) {
     const cleanedRank = rank ? rank.trim() : '?';
     
     switch(cleanedRank) {
-        case 'S': return 'is-warning';
-        case 'A': return 'is-success';
-        case 'B': return 'is-info';
-        case 'C': return 'is-danger';
+        case 'S': return 'tier-s';
+        case 'A': return 'tier-a';
+        case 'B': return 'tier-b';
+        case 'C': return 'tier-c';
         case 'U': return 'is-white';
         default: return 'is-light';    
     }
@@ -18,23 +18,39 @@ document.addEventListener('DOMContentLoaded', () => {
     if (addForm) {
         addForm.addEventListener('submit', async (e) => {
             e.preventDefault();
+            
+            const newMu = parseFloat(document.getElementById('newMu').value);
+            const newSigma = parseFloat(document.getElementById('newSigma').value);
+            
+            if (isNaN(newMu) || isNaN(newSigma)) {
+                alert("Erreur: Mu et Sigma doivent être des nombres.");
+                return;
+            }
+            
             const data = {
                 nom: document.getElementById('newNom').value,
-                mu: document.getElementById('newMu').value,
-                sigma: document.getElementById('newSigma').value
+                mu: newMu,
+                sigma: newSigma
             };
 
             const res = await apiCall('/admin/joueurs', 'POST', data);
+            
             if (res.error) alert("Erreur: " + res.error);
-            else {
+            else if (res.status === 'success') {
                 document.getElementById('newNom').value = "";
+                document.getElementById('newMu').value = "50";
+                document.getElementById('newSigma').value = "8.333";
                 loadPlayers();
+            } else {
+                 alert("Erreur: " + (res.message || res.status));
             }
         });
     }
 });
 
-async function apiCall(url, method, body = null) {
+async function apiCall(endpoint, method, body = null) {
+    const url = `/api${endpoint}`; 
+    
     const options = {
         method: method,
         headers: {
@@ -46,14 +62,22 @@ async function apiCall(url, method, body = null) {
     
     try {
         const response = await fetch(url, options);
-        const text = await response.text();
-        try {
-             return JSON.parse(text);
-        } catch(e) {
-             return { status: response.statusText };
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            try {
+                const errorJson = JSON.parse(errorText);
+                return { error: errorJson.error || response.statusText, status: response.status };
+            } catch {
+                return { error: response.statusText, status: response.status };
+            }
         }
+        
+        return await response.json();
+        
     } catch (err) {
-        return { error: err.message };
+        console.error("Erreur Fetch:", err);
+        return { error: "Erreur de connexion au serveur API." };
     }
 }
 
@@ -74,15 +98,17 @@ async function loadPlayers() {
         const tierClass = getTierColor(p.tier); 
         
         const tr = document.createElement('tr');
+        const playerDataString = JSON.stringify(p).replace(/'/g, "\\'"); 
+        
         tr.innerHTML = `
             <td class="has-text-light font-weight-bold">${p.nom}</td>
             <td class="has-text-grey-light">${parseFloat(p.mu).toFixed(3)}</td> 
             <td class="has-text-grey-light">${parseFloat(p.sigma).toFixed(3)}</td>
             
-            <td><span class="tag ${tierClass}">${p.tier}</span></td>
+            <td><span class="tag ${tierClass}">${p.tier.trim()}</span></td>
             
             <td class="has-text-right">
-                <button class="button is-small is-warning is-outlined mr-2" onclick='openEditModal(${JSON.stringify(p)})'>
+                <button class="button is-small is-warning is-outlined mr-2" onclick='openEditModal(${playerDataString})'>
                     <i class="fas fa-edit"></i>
                 </button>
                 <button class="button is-small is-danger is-outlined" onclick="deletePlayer(${p.id})">
@@ -100,14 +126,14 @@ async function deletePlayer(id) {
     if(!confirm("Êtes-vous sûr de vouloir supprimer ce joueur définitivement ?")) return;
     const res = await apiCall(`/admin/joueurs/${id}`, 'DELETE');
     if(res.status === 'success') loadPlayers();
-    else alert("Erreur lors de la suppression");
+    else alert("Erreur lors de la suppression: " + (res.error || ""));
 }
 
 function openEditModal(player) {
     document.getElementById('editId').value = player.id;
     document.getElementById('editNom').value = player.nom;
-    document.getElementById('editMu').value = player.mu;
-    document.getElementById('editSigma').value = player.sigma;
+    document.getElementById('editMu').value = parseFloat(player.mu).toFixed(3);
+    document.getElementById('editSigma').value = parseFloat(player.sigma).toFixed(3);
     document.getElementById('editModal').classList.add('is-active');
 }
 
@@ -117,17 +143,27 @@ function closeModal() {
 
 async function saveEdit() {
     const id = document.getElementById('editId').value;
+    const newNom = document.getElementById('editNom').value;
+    const newMu = parseFloat(document.getElementById('editMu').value);
+    const newSigma = parseFloat(document.getElementById('editSigma').value);
+    
+    if (isNaN(newMu) || isNaN(newSigma)) {
+        alert("Erreur: Mu et Sigma doivent être des nombres.");
+        return;
+    }
+    
     const data = {
-        nom: document.getElementById('editNom').value,
-        mu: document.getElementById('editMu').value,
-        sigma: document.getElementById('editSigma').value
+        nom: newNom,
+        mu: newMu,
+        sigma: newSigma
     };
     
     const res = await apiCall(`/admin/joueurs/${id}`, 'PUT', data);
+    
     if(res.status === 'success') {
         closeModal();
         loadPlayers();
     } else {
-        alert("Erreur: " + res.error);
+        alert("Erreur lors de l'enregistrement: " + (res.error || ""));
     }
 }

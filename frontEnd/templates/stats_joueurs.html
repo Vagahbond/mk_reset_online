@@ -135,13 +135,13 @@
                                                     </h3>
                                                     
                                                     {% if joueur.tier == 'S' %}
-                                                        <span class="tag is-warning">Tier S</span>
+                                                        <span class="tag tier-s">Tier S</span>
                                                     {% elif joueur.tier == 'A' %}
-                                                        <span class="tag is-success">Tier A</span>
+                                                        <span class="tag tier-a">Tier A</span>
                                                     {% elif joueur.tier == 'B' %}
-                                                        <span class="tag is-info">Tier B</span>
+                                                        <span class="tag tier-b">Tier B</span>
                                                     {% elif joueur.tier == 'C' %}
-                                                        <span class="tag is-primary">Tier C</span>
+                                                        <span class="tag tier-c">Tier C</span>
                                                     {% else %}
                                                         <span class="tag is-light">Tier {{ joueur.tier }}</span>
                                                     {% endif %}

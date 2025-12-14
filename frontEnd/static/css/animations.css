@@ -104,18 +104,37 @@
     border-radius: 20px;
     padding-left: 0.75rem;
     padding-right: 0.75rem;
+    color: #1a202c !important; /* Texte sombre pour contraste sur couleurs claires */
+    font-weight: bold;
+    border: 1px solid rgba(255,255,255,0.2);
 }
 
-.tag.is-warning {
-    background: linear-gradient(45deg, #f59e0b, #fbbf24);
-    color: #78350f;
+.tag.tier-s {
+    background: linear-gradient(45deg, #ff7f7f, #ff9e9e);
+    color: #4a0f0f !important;
+}
+
+.tag.tier-a {
+    background: linear-gradient(45deg, #b3ef78, #d4ff9e);
+    color: #2a3e1a !important;
+}
+
+.tag.tier-b {
+    background: linear-gradient(45deg, #77ecec, #aaffff);
+    color: #1a3e3e !important;
+}
+
+.tag.tier-c {
+    background: linear-gradient(45deg, #b176ed, #d69eff);
+    color: #2e1a3e !important;
 }
 
 .tag.is-light {
     background: linear-gradient(45deg, #e5e7eb, #f3f4f6);
-    color: #374151;
+    color: #374151 !important;
 }
 
 .tag.is-danger {
     background: linear-gradient(45deg, #ef4444, #f87171);
+    color: white !important;
 }

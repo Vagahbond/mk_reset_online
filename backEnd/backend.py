@@ -186,7 +186,6 @@ def classement():
     try:
         tier_filtre = request.args.get('tier', None)
         
-        # Requête SQL optimisée pour tout calculer d'un coup
         query = """
             SELECT 
                 j.nom, j.mu, j.sigma, j.score_trueskill, j.tier,
@@ -200,7 +199,6 @@ def classement():
             query += " WHERE j.tier = %s"
             params.append(tier_filtre.upper())
             
-        # Groupement nécessaire pour les fonctions d'agrégation (COUNT, SUM)
         query += " GROUP BY j.id, j.nom, j.mu, j.sigma, j.score_trueskill, j.tier"
         query += " ORDER BY j.score_trueskill DESC NULLS LAST"
         
@@ -218,10 +216,8 @@ def classement():
                     nb = int(nb_tournois)
                     vic = int(victoires) if victoires else 0
                     
-                    # Calcul du ratio
                     ratio = round((vic / nb * 100), 1) if nb > 0 else 0
                     
-                    # Calcul du percentile
                     percentile = 0
                     if total_joueurs > 1:
                         rank = index + 1
@@ -429,16 +425,29 @@ def get_tournoi_details(tournoi_id):
 @admin_required
 def add_tournament():
     data = request.get_json()
-    date_tournoi = data.get('date')
+    date_tournoi_str = data.get('date')
     joueurs_data = data.get('joueurs')
 
-    if not date_tournoi or not joueurs_data:
+    if not date_tournoi_str or not joueurs_data:
         return jsonify({"error": "Données incomplètes"}), 400
 
     try:
+        date_tournoi = datetime.strptime(date_tournoi_str, '%Y-%m-%d').date()
+        date_jour = datetime.now().date()
+
+        if date_tournoi > date_jour:
+            return jsonify({"error": "Impossible d'ajouter un tournoi dans le futur."}), 400
+
         with get_db_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute("INSERT INTO Tournois (date) VALUES (%s) RETURNING id", (date_tournoi,))
+                cur.execute("SELECT MAX(date) FROM Tournois")
+                last_record = cur.fetchone()
+                last_date = last_record[0] if last_record else None
+
+                if last_date and date_tournoi < last_date:
+                    return jsonify({"error": f"Date invalide. Le dernier tournoi enregistré date du {last_date}. Impossible d'insérer un tournoi avant cette date pour préserver l'historique TrueSkill."}), 400
+
+                cur.execute("INSERT INTO Tournois (date) VALUES (%s) RETURNING id", (date_tournoi_str,))
                 tournoi_id = cur.fetchone()[0]
 
                 joueurs_ratings = {}
@@ -500,7 +509,7 @@ def add_tournament():
             
             conn.commit()
             recalculate_tiers()
-            run_auto_backup(date_tournoi)
+            run_auto_backup(date_tournoi_str)
             return jsonify({"status": "success", "tournoi_id": tournoi_id}), 201
 
     except Exception as e:

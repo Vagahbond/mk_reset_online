@@ -17,6 +17,7 @@
             <h1 class="title has-text-centered mb-6">
                 <i class="fas fa-plus-circle"></i> Enregistrer un Tournoi
             </h1>
+
             <div class="columns is-variable is-6">
                 <div class="column is-4">
                     <div class="card glass-card" style="height: 100%;">
@@ -93,13 +94,15 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('dateTournoi').valueAsDate = new Date();
+            const dateInput = document.getElementById('dateTournoi');
+            const today = new Date().toISOString().split('T')[0];
+            dateInput.value = today;
+            dateInput.max = today;
 
             const playersPool = document.getElementById('players-pool');
             const participantsList = document.getElementById('participantsList');
             const searchInput = document.getElementById('searchPlayer');
             
-            // Récupération des joueurs
             fetch('/joueurs/noms')
                 .then(response => response.json())
                 .then(noms => {

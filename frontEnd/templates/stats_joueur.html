@@ -22,13 +22,13 @@
                 </h1>
                 <h2 class="subtitle has-text-centered">
                     {% if stats.tier == 'S' %}
-                        <span class="tag is-warning">Tier S</span>
+                        <span class="tag tier-s">Tier S</span>
                     {% elif stats.tier == 'A' %}
-                        <span class="tag is-success">Tier A</span>
+                        <span class="tag tier-a">Tier A</span>
                     {% elif stats.tier == 'B' %}
-                        <span class="tag is-info">Tier B</span>
+                        <span class="tag tier-b">Tier B</span>
                     {% elif stats.tier == 'C' %}
-                        <span class="tag is-primary">Tier C</span>
+                        <span class="tag tier-c">Tier C</span>
                     {% else %}
                         <span class="tag is-light">Tier {{ stats.tier }}</span>
                     {% endif %}

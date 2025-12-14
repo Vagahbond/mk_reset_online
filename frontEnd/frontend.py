@@ -220,7 +220,6 @@ def confirmation():
 
 @app.route('/stats/joueurs')
 def stats_joueurs():
-    # Appel vers la route corrigée '/classement'
     data, status = backend_request('GET', '/classement')
     
     joueurs = []
