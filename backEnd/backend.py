@@ -6,10 +6,10 @@ import functools
 import psycopg2
 import bcrypt
 import subprocess
+import trueskill
 from datetime import datetime
 from flask import Flask, jsonify, request, abort
 from psycopg2 import pool
-from trueskill import Rating, rate
 from contextlib import contextmanager
 
 logging.basicConfig(level=logging.INFO)
@@ -60,6 +60,19 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+def get_config_value(key, default_value):
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT value FROM Configuration WHERE key = %s", (key,))
+                res = cur.fetchone()
+                if res:
+                    return res[0]
+                return default_value
+    except Exception as e:
+        logger.error(f"Erreur lecture config {key}: {e}")
+        return default_value
+
 def sync_sequences():
     with get_db_connection() as conn:
         with conn.cursor() as cur:
@@ -83,7 +96,7 @@ def recalculate_tiers():
                 
                 valid_scores = []
                 for pid, mu, sigma in all_players:
-                    if float(sigma) <= 4.15:
+                    if float(sigma) < 4.0:
                         score = float(mu) - (3 * float(sigma))
                         valid_scores.append(score)
                         
@@ -94,17 +107,24 @@ def recalculate_tiers():
                 variance = sum((x - mean_score) ** 2 for x in valid_scores) / len(valid_scores)
                 std_dev = math.sqrt(variance)
 
+                print(f"mu = {mean_score:.3f}, sigma = {std_dev:.3f}")
+                print(f"rank S > {(mean_score + std_dev):.3f}, rank A > {mean_score:.3f}, rank B < {mean_score:.3f}, rank c < {(mean_score - std_dev):.3f},")
+
                 for pid, mu, sigma in all_players:
                     mu_val = float(mu)
                     sigma_val = float(sigma)
                     score = mu_val - (3 * sigma_val)
                     
                     new_tier = 'U'
-                    if sigma_val <= 4.15:
-                        if score > (mean_score + std_dev): new_tier = 'S'
-                        elif score > mean_score: new_tier = 'A'
-                        elif score > (mean_score - std_dev): new_tier = 'B'
-                        else: new_tier = 'C'
+                    if sigma_val < 4.0:
+                        if score > (mean_score + std_dev):
+                            new_tier = 'S'
+                        elif score > mean_score:
+                            new_tier = 'A'
+                        elif score > (mean_score - std_dev):
+                            new_tier = 'B'
+                        else:
+                            new_tier = 'C'
                     
                     cur.execute("UPDATE Joueurs SET tier = %s WHERE id = %s", (new_tier, pid))
             conn.commit()
@@ -113,10 +133,6 @@ def recalculate_tiers():
             conn.rollback()
 
 def run_auto_backup(tournoi_date_str):
-    """
-    Lance une sauvegarde.
-    Nom du fichier : backup_TOURNOI_YYYY-MM-DD_saved_at_HH-MM-SS.sql.gz
-    """
     try:
         backup_dir = "/app/backups"
         
@@ -212,7 +228,7 @@ def classement():
                 for index, row in enumerate(rows):
                     nom, mu, sigma, score_trueskill, tier, nb_tournois, victoires = row
                     
-                    score_ts = round(float(score_trueskill), 2) if score_trueskill is not None else 0.00
+                    score_ts = round(float(score_trueskill), 3) if score_trueskill is not None else 0.000
                     nb = int(nb_tournois)
                     vic = int(victoires) if victoires else 0
                     
@@ -289,7 +305,7 @@ def get_joueur_stats(nom):
                         "date": date.strftime("%Y-%m-%d"),
                         "score": s_val,
                         "position": p_val,
-                        "score_trueskill": round(ts_val, 2)
+                        "score_trueskill": round(ts_val, 3)
                     })
 
                 nb_tournois = len(scores_bruts)
@@ -325,18 +341,18 @@ def get_joueur_stats(nom):
 
         return jsonify({
             "stats": {
-                "mu": round(float(mu), 2) if mu else 25.0,
-                "sigma": round(float(sigma), 2) if sigma else 8.333,
-                "score_trueskill": round(safe_ts, 2),
+                "mu": round(float(mu), 3) if mu else 25.0,
+                "sigma": round(float(sigma), 3) if sigma else 8.333,
+                "score_trueskill": round(safe_ts, 3),
                 "tier": tier.strip() if tier else '?',
                 "nombre_tournois": nb_tournois,
                 "victoires": victoires,
                 "ratio_victoires": round(ratio_victoires, 1),
-                "score_moyen": round(score_moyen, 1),
+                "score_moyen": round(score_moyen, 3),
                 "meilleur_score": meilleur_score,
-                "ecart_type_scores": round(ecart_type_scores, 1),
+                "ecart_type_scores": round(ecart_type_scores, 3),
                 "position_moyenne": round(position_moyenne, 1),
-                "progression_recente": round(progression_recente, 2),
+                "progression_recente": round(progression_recente, 3),
                 "percentile_trueskill": round(percentile, 1)
             },
             "historique": historique_data
@@ -370,7 +386,7 @@ def get_global_joueur_stats():
                     )
                     SELECT nom, progression, tier FROM JoueurEvolution ORDER BY progression DESC LIMIT 10
                 """)
-                progressions = [{"nom": r[0], "progression": round(float(r[1]), 2), "tier": r[2].strip() if r[2] else "?"} for r in cur.fetchall()]
+                progressions = [{"nom": r[0], "progression": round(float(r[1]), 3), "tier": r[2].strip() if r[2] else "?"} for r in cur.fetchall()]
                 
                 cur.execute("SELECT tier, COUNT(*) FROM Joueurs WHERE tier IS NOT NULL GROUP BY tier")
                 dist = {r[0].strip(): r[1] for r in cur.fetchall()}
@@ -413,7 +429,7 @@ def get_tournoi_details(tournoi_id):
                 """, (tournoi_id,))
                 res = [{
                     "nom": r[0], "score_tournoi": r[1],
-                    "score_trueskill": round(float(r[2]), 2) if r[2] else 0,
+                    "score_trueskill": round(float(r[2]), 3) if r[2] else 0,
                     "tier": r[3].strip() if r[3] else "?", "position": r[4]
                 } for r in cur.fetchall()]
         return jsonify({"date": td[0].strftime("%Y-%m-%d"), "resultats": res})
@@ -470,7 +486,7 @@ def add_tournament():
                     current_mu = float(mu)
                     current_sigma = float(sigma)
 
-                    joueurs_ratings[nom] = Rating(mu=current_mu, sigma=current_sigma)
+                    joueurs_ratings[nom] = trueskill.Rating(mu=current_mu, sigma=current_sigma)
                     joueurs_ids_map[nom] = jid
                     
                     cur.execute("""
@@ -488,7 +504,13 @@ def add_tournament():
                     last_s = j['score']
                 
                 teams = [[joueurs_ratings[j['nom']]] for j in sorted_joueurs]
-                new_ratings = rate(teams, ranks=ranks)
+                
+                cur.execute("SELECT value FROM Configuration WHERE key = 'tau'")
+                tau_res = cur.fetchone()
+                tau_val = float(tau_res[0]) if tau_res else 0.083
+                
+                ts_env = trueskill.TrueSkill(mu=25.0, sigma=8.333, beta=4.167, tau=tau_val, draw_probability=0.1)
+                new_ratings = ts_env.rate(teams, ranks=ranks)
 
                 for i, j in enumerate(sorted_joueurs):
                     nom = j['nom']
@@ -634,6 +656,35 @@ def api_delete_joueur(id):
         return jsonify({"status": "success"})
     except Exception as e:
         logger.error(f"Erreur admin delete joueur : {e}")
+        return jsonify({"error": "Erreur serveur"}), 400
+
+@app.route('/admin/config', methods=['GET'])
+@admin_required
+def get_config():
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT value FROM Configuration WHERE key = 'tau'")
+                res = cur.fetchone()
+                tau = float(res[0]) if res else 0.083
+        return jsonify({"tau": tau})
+    except Exception as e:
+        logger.error(f"Erreur get config : {e}")
+        return jsonify({"error": "Erreur serveur"}), 500
+
+@app.route('/admin/config', methods=['POST'])
+@admin_required
+def update_config():
+    data = request.get_json()
+    try:
+        tau = float(data.get('tau'))
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("INSERT INTO Configuration (key, value) VALUES ('tau', %s) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", (str(tau),))
+            conn.commit()
+        return jsonify({"status": "success"})
+    except Exception as e:
+        logger.error(f"Erreur update config : {e}")
         return jsonify({"error": "Erreur serveur"}), 400
 
 if __name__ == '__main__':

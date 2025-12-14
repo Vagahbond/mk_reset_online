@@ -12,6 +12,16 @@ SET row_security = off;
 SET default_tablespace = '';
 SET default_table_access_method = heap;
 
+CREATE TABLE public.configuration (
+    key character varying(50) NOT NULL,
+    value character varying(255) NOT NULL
+);
+
+ALTER TABLE public.configuration OWNER TO username;
+
+ALTER TABLE ONLY public.configuration
+    ADD CONSTRAINT configuration_pkey PRIMARY KEY (key);
+
 CREATE TABLE public.joueurs (
     id integer NOT NULL,
     nom character varying(255) NOT NULL,
@@ -71,33 +81,34 @@ ALTER SEQUENCE public.tournois_id_seq OWNED BY public.tournois.id;
 ALTER TABLE ONLY public.joueurs ALTER COLUMN id SET DEFAULT nextval('public.joueurs_id_seq'::regclass);
 ALTER TABLE ONLY public.tournois ALTER COLUMN id SET DEFAULT nextval('public.tournois_id_seq'::regclass);
 
+COPY public.configuration (key, value) FROM stdin;
+tau	0.083
+\.
+
 COPY public.joueurs (id, nom, mu, sigma, tier) FROM stdin;
 1	Rosalyan	67.897	3.002	S
-2	J_sk8	57.662	0.858	S
-3	Elite	56.314	0.865	S
-4	Rayou	55.923	1.142	S
-5	Vakaeltraz	54.805	0.788	S
-6	Melwin	52.797	0.838	A
-7	Lu_K	53.467	1.123	A
-8	Clem	50.023	0.884	A
-9	Daytona_69	48.956	1.131	A
+2	J_sk8	56.241	0.922	S
+3	Elite	57.361	0.968	S
+4	Rayou	54.330	1.531	A
+5	Vakaeltraz	55.534	0.858	S
+6	Melwin	52.161	0.963	A
+7	Lu_K	53.521	1.223	A
+8	Clem	50.655	0.986	A
+9	Daytona_69	48.588	1.482	B
 10	JeanCube	50.280	1.956	A
 11	Oleas	56.247	4.235	U
 12	Thaumas	51.464	2.719	B
 13	Ether-Zero	52.986	4.335	U
-14	Ael	44.339	1.818	B
-15	Tomwilson	49.867	4.522	U
-16	Falgo	41.529	2.054	B
-17	Brook1l	42.095	2.266	B
-18	Hardox	40.936	2.108	C
-19	ColorOni	47.302	4.294	U
-20	Camou	42.971	3.181	C
-21	Kemoory	39.060	2.010	C
-22	Fozlo	38.119	1.859	C
-23	McK17	43.013	3.604	C
-24	Kaysuan	43.312	5.890	U
-25	PastPlayer	42.099	5.725	U
-26	Tomy	35.993	4.691	U
+14	Tomwilson	49.867	4.522	U
+15	Brook1l	42.095	2.266	B
+16	Hardox	40.936	2.108	C
+17	ColorOni	47.302	4.294	U
+18	Kemoory	40.009	2.128	C
+19	Camou	42.971	3.181	C
+20	Fozlo	38.571	1.949	C
+21	Kaysuan	43.312	5.890	U
+22	PastPlayer	42.099	5.725	U
+23	Tomy	35.993	4.691	U
 \.
 
 COPY public.participations (joueur_id, tournoi_id, score) FROM stdin;

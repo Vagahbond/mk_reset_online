@@ -7,12 +7,13 @@ function getTierColor(rank) {
         case 'B': return 'tier-b';
         case 'C': return 'tier-c';
         case 'U': return 'is-white';
-        default: return 'is-light';    
+        default: return 'is-light';
     }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
     loadPlayers();
+    loadConfig();
 
     const addForm = document.getElementById('addPlayerForm');
     if (addForm) {
@@ -38,7 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (res.error) alert("Erreur: " + res.error);
             else if (res.status === 'success') {
                 document.getElementById('newNom').value = "";
-                document.getElementById('newMu').value = "50";
+                document.getElementById('newMu').value = "50"; 
                 document.getElementById('newSigma').value = "8.333";
                 loadPlayers();
             } else {
@@ -46,16 +47,35 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
+    const configForm = document.getElementById('configForm');
+    if (configForm) {
+        configForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const tau = parseFloat(document.getElementById('configTau').value);
+            if (isNaN(tau)) {
+                alert("Erreur: Tau doit être un nombre.");
+                return;
+            }
+            const res = await apiCall('/admin/config', 'POST', { tau: tau });
+            if (res.error) alert("Erreur: " + res.error);
+            else if (res.status === 'success') {
+                alert("Configuration mise à jour avec succès.");
+            } else {
+                alert("Erreur update config.");
+            }
+        });
+    }
 });
 
 async function apiCall(endpoint, method, body = null) {
-    const url = `/api${endpoint}`; 
+    const url = endpoint; 
     
     const options = {
         method: method,
         headers: {
             'Content-Type': 'application/json',
-            'X-Admin-Token': ADMIN_TOKEN 
+            'X-Admin-Token': (typeof ADMIN_TOKEN !== 'undefined') ? ADMIN_TOKEN : ''
         }
     };
     if (body) options.body = JSON.stringify(body);
@@ -81,6 +101,13 @@ async function apiCall(endpoint, method, body = null) {
     }
 }
 
+async function loadConfig() {
+    const res = await apiCall('/admin/config', 'GET');
+    if (res.tau !== undefined) {
+        document.getElementById('configTau').value = res.tau;
+    }
+}
+
 async function loadPlayers() {
     const players = await apiCall('/admin/joueurs', 'GET');
     const tbody = document.getElementById('playersTableBody');
@@ -90,7 +117,7 @@ async function loadPlayers() {
 
     if (players.error || !Array.isArray(players)) {
         console.error("Erreur de l'API:", players.error || players);
-        tbody.innerHTML = `<tr><td colspan="5" class="has-text-centered has-text-danger">Impossible de charger les données.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" class="has-text-centered has-text-danger">Impossible de charger les données (${players.error || "Erreur inconnue"}).</td></tr>`;
         return;
     }
 
@@ -98,14 +125,16 @@ async function loadPlayers() {
         const tierClass = getTierColor(p.tier); 
         
         const tr = document.createElement('tr');
+        tr.className = "fade-in";
+        
         const playerDataString = JSON.stringify(p).replace(/'/g, "\\'"); 
         
         tr.innerHTML = `
-            <td class="has-text-light font-weight-bold">${p.nom}</td>
+            <td class="has-text-light has-text-weight-bold">${p.nom}</td>
             <td class="has-text-grey-light">${parseFloat(p.mu).toFixed(3)}</td> 
             <td class="has-text-grey-light">${parseFloat(p.sigma).toFixed(3)}</td>
             
-            <td><span class="tag ${tierClass}">${p.tier.trim()}</span></td>
+            <td><span class="tag ${tierClass}">${p.tier ? p.tier.trim() : '?'}</span></td>
             
             <td class="has-text-right">
                 <button class="button is-small is-warning is-outlined mr-2" onclick='openEditModal(${playerDataString})'>
@@ -119,7 +148,9 @@ async function loadPlayers() {
         tbody.appendChild(tr);
     });
     
-    document.querySelectorAll('.fade-in').forEach(el => el.classList.add('visible'));
+    setTimeout(() => {
+        document.querySelectorAll('.fade-in').forEach(el => el.classList.add('visible'));
+    }, 50);
 }
 
 async function deletePlayer(id) {

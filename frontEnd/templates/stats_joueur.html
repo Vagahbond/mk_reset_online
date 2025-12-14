@@ -65,7 +65,7 @@
                                     <div class="level-item has-text-centered">
                                         <div>
                                             <p class="heading">TrueSkill</p>
-                                            <p class="title">{{ stats.score_trueskill|round(1) }}</p>
+                                            <p class="title">{{ stats.score_trueskill|round(3) }}</p>
                                         </div>
                                     </div>
                                     <div class="level-item has-text-centered">
@@ -92,7 +92,7 @@
                                         </tr>
                                         <tr>
                                             <td><i class="fas fa-calculator"></i> Score moyen</td>
-                                            <td class="has-text-right">{{ stats.score_moyen|round(1) }}</td>
+                                            <td class="has-text-right">{{ stats.score_moyen|round(3) }}</td>
                                         </tr>
                                         <tr>
                                             <td><i class="fas fa-arrow-up"></i> Meilleur score</td>
@@ -121,7 +121,7 @@
                                     </progress>
                                     <p class="help">
                                         {% if stats.ecart_type_scores and stats.score_moyen %}
-                                            Écart-type de {{ stats.ecart_type_scores|round(1) }} ({{ (stats.ecart_type_scores / stats.score_moyen * 100)|round }}% de la moyenne)
+                                            Écart-type de {{ stats.ecart_type_scores|round(3) }} ({{ (stats.ecart_type_scores / stats.score_moyen * 100)|round }}% de la moyenne)
                                         {% else %}
                                             Données insuffisantes
                                         {% endif %}
@@ -137,9 +137,9 @@
                                     </progress>
                                     <p class="help">
                                         {% if stats.progression_recente > 0 %}
-                                            En amélioration (+{{ stats.progression_recente|round(1) }} points)
+                                            En amélioration (+{{ stats.progression_recente|round(3) }} points)
                                         {% elif stats.progression_recente < 0 %}
-                                            En déclin ({{ stats.progression_recente|round(1) }} points)
+                                            En déclin ({{ stats.progression_recente|round(3) }} points)
                                         {% else %}
                                             Stable
                                         {% endif %}

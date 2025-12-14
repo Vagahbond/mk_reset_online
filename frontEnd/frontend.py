@@ -18,7 +18,7 @@ except KeyError as e:
     logger.critical(f"Variable d'environnement manquante : {e}")
     sys.exit(1)
 
-app.permanent_session_lifetime = timedelta(minutes=2)
+app.permanent_session_lifetime = timedelta(minutes=30)
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
@@ -49,9 +49,7 @@ def backend_request(method, endpoint, data=None, params=None, headers=None):
 
 @app.route('/joueurs/noms')
 def proxy_joueurs_noms():
-    # Le frontend demande la liste au backend (conteneur 'backend' port 8080)
     try:
-        # On utilise le nom du service docker "backend"
         response = requests.get('http://backend:8080/joueurs/noms')
         return jsonify(response.json())
     except Exception as e:
@@ -60,15 +58,11 @@ def proxy_joueurs_noms():
 
 @app.route('/add-tournament', methods=['POST'])
 def proxy_add_tournament():
-    # Vérification que l'utilisateur est admin
     if not session.get('admin_token'):
         return jsonify({'status': 'error', 'message': 'Non autorisé'}), 403
 
     try:
         data = request.get_json()
-        
-        # On transfère la requête au Backend
-        # On ajoute le token admin dans les headers pour que le backend accepte
         headers = {'X-Admin-Token': session.get('admin_token')}
         
         response = requests.post(
@@ -76,8 +70,6 @@ def proxy_add_tournament():
             json=data,
             headers=headers
         )
-        
-        # On renvoie la réponse du backend au navigateur
         return jsonify(response.json()), response.status_code
 
     except Exception as e:
@@ -287,6 +279,21 @@ def proxy_joueurs_detail(id):
     elif request.method == 'DELETE':
         data, status = backend_request('DELETE', f'/admin/joueurs/{id}', headers=headers)
             
+    return jsonify(data), status
+
+@app.route('/admin/config', methods=['GET', 'POST'])
+@csrf.exempt
+def proxy_config():
+    if 'admin_token' not in session:
+        return jsonify({'error': 'Non autorisé'}), 403
+    
+    headers = {'X-Admin-Token': session['admin_token']}
+    
+    if request.method == 'GET':
+        data, status = backend_request('GET', '/admin/config', headers=headers)
+    elif request.method == 'POST':
+        data, status = backend_request('POST', '/admin/config', data=request.get_json(), headers=headers)
+    
     return jsonify(data), status
     
 if __name__ == '__main__':
