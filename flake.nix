@@ -28,15 +28,16 @@
       psql -h localhost -p 5432 -U $USER -d postgres -c "CREATE DATABASE ${dbName} WITH OWNER ${dbUserName};";
     '';
   in {
-    nixosModules = forAllSystems (pkgs: {
+    nixosModules = {
       default = {
         lib,
+        pkgs,
         config,
         ...
       }:
         (import ./nix/module.nix {inherit lib pkgs config;})
         // (import ./nix/options.nix {inherit lib;});
-    });
+    };
 
     packages = forAllSystems (pkgs: {
       mkReset = pkgs.callPackage ./nix/package.nix {};

@@ -4,21 +4,25 @@ with lib; {
     services.mkReset = {
       enable = mkEnableOption "Mk Reset (classements)";
 
-      backendPort = mkOption {
-        description = "What port to run the backend on.";
-        type = types.int;
-        default = 8653;
+      frontend = {
+        port = lib.mkOption {
+          type = lib.types.str;
+          description = "Port for frontend app";
+          default = "8653";
+        };
       };
 
-      frontendPort = mkOption {
-        description = "What port to run the frontend on.";
-        type = types.int;
-        default = 8653;
+      backend = {
+        port = lib.mkOption {
+          type = lib.types.str;
+          description = "Port for backend app";
+          default = "8653";
+        };
       };
 
       envFile = mkOption {
         description = "Environment variables for the app";
-        type = types.path;
+        type = lib.types.path;
         default = null;
       };
     };
