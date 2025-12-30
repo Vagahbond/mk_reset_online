@@ -39,26 +39,28 @@
     });
 
     packages = forAllSystems (pkgs: {
-      mkReset = pkgs.callPackage ./nix/package.nix;
+      mkReset = pkgs.callPackage ./nix/package.nix {};
       default = self.packages.${pkgs.stdenv.hostPlatform.system}.mkReset;
     });
 
     devShells = forAllSystems (pkgs: {
       default = pkgs.mkShell {
         buildInputs = [
-          pkgs.python3
-          pkgs.python313Packages.gunicorn
-          pkgs.python313Packages.pip
-          pkgs.python313Packages.psycopg2-binary
-          pkgs.python313Packages.trueskill
-          pkgs.python313Packages.numpy
-          pkgs.python313Packages.bcrypt
-          pkgs.python313Packages.flask
-          pkgs.python313Packages.requests
-          pkgs.python313Packages.flask-wtf
-
+          self.packages.${pkgs.stdenv.hostPlatform.system}.mkReset
           pkgs.postgresql
         ];
+
+        env = {
+          POSTGRES_DB = dbName;
+          POSTGRES_USER = dbUserName;
+          POSTGRES_PASSWORD = dbPassword;
+          POSTGRES_HOST = "localhost";
+          POSTGRES_PORT = 5432;
+          ADMIN_TOKEN = "secret";
+          ADMIN_PASSWORD_HASH = "$2a$12$lLsQonpUM1UrTfjJY42eTeFvZFKXIGtKaqzCkteLcqRGiWTygzy9e";
+          SECRET_KEY = "secret";
+          BACKEND_URL = "http://localhost:8080";
+        };
 
         shellHook = ''
           alias pginit='pg_ctl -D data init;';
@@ -73,15 +75,6 @@
 
           echo Now developping Mario Krade!
 
-          export POSTGRES_DB=${dbName}
-          export POSTGRES_USER=${dbUserName}
-          export POSTGRES_PASSWORD=${dbPassword}
-          export POSTGRES_HOST=localhost
-          export POSTGRES_PORT=5432
-          export ADMIN_TOKEN=secret
-          export ADMIN_PASSWORD_HASH=$2a$12$lLsQonpUM1UrTfjJY42eTeFvZFKXIGtKaqzCkteLcqRGiWTygzy9e
-          export SECRET_KEY=secret
-          export BACKEND_URL=http://localhost:8080
 
           alias backend_start='python -c "from backend import sync_sequences, recalculate_tiers; sync_sequences(); recalculate_tiers()" && gunicorn -w 4 -b 0.0.0.0:8080 backend:app;'
           alias frontend_start='gunicorn -w 4 -b 0.0.0.0:5000 frontend:app'

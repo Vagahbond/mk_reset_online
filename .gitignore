@@ -4,3 +4,5 @@ env/
 pglogfile
 
 data/
+
+result/
