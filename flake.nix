@@ -35,7 +35,7 @@
         config,
         ...
       }:
-        (import ./nix/module.nix {inherit lib pkgs config;})
+        (import ./nix/module.nix {inherit lib pkgs config self;})
         // (import ./nix/options.nix {inherit lib;});
     };
 
