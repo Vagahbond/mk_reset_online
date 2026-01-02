@@ -1,100 +1,111 @@
-# 🏁 Mario Kart Reset Online
+🏁 Mario Kart Reset Online
 
-## 🎮 Description
+Mario Kart Reset Online est une application web compétitive conçue pour suivre, classer et analyser les performances des joueurs lors de tournois Mario Kart.
 
-**Mario Kart Reset Online** est une application web dynamique permettant de suivre les résultats de tournois de Mario Kart. Elle propose une interface utilisateur pour consulter les résultats des tournois ayant été joués, afficher un classement général des joueurs basé sur l’algorithme **TrueSkill**, et explorer des **statistiques détaillées** sur les performances des joueurs.
+Elle se distingue par l'utilisation de l'algorithme TrueSkill™ pour un classement équitable, une interface Dark Mode "Glassmorphism" moderne, et un panel d'administration sécurisé.
+📸 Aperçu
+Classement	Statistiques Joueur	Admin Panel
+		
+🚀 Fonctionnalités
+👤 Côté Utilisateur
 
-Lien vers le [dépôt](https://github.com/Kemoory/mk_reset_online).
+    🏆 Classement TrueSkill : Système de rang (S, A, B, C) basé sur le Mu et Sigma (incertitude) de chaque joueur.
 
-## 🚀 Fonctionnalités principales
+    📊 Statistiques Avancées : Graphiques interactifs montrant l'évolution du niveau, ratio victoires/défaites, et historique complet.
 
-- 📊 **Consultation des résultats de tournois**  
-  Affichage clair des résultats du dernier tournoi ou des précédents.
+    🎨 Interface Immersive : Design sombre avec effets de transparence (Glassmorphism) et animations fluides.
 
-- 🏆 **Classement général des joueurs**  
-  Mise à jour dynamique du classement des joueurs selon leurs performances dans les différents tournois, calculé via **TrueSkill** : [trueskill.org](https://trueskill.org/)
+    📱 Responsive : Accessible sur mobile et desktop.
 
-- 📈 **Statistiques détaillées**  
-  Accès à diverses statistiques : nombre de victoires, ratio victoires/défaites, score moyen, etc.
+🛡️ Côté Administrateur
 
-## 🛠️ Technologies utilisées
+    🔐 Authentification Forte : Système de login sécurisé par hashage (Bcrypt) et tokens de session dynamiques.
 
-### Frontend
-- `HTML` — Structure des pages
-- `CSS` + `Bulma` — Design
-- `JavaScript` — Interactivité
+    📝 Gestion des Tournois : Ajout rapide de tournois avec recherche dynamique de joueurs et calcul immédiat des nouveaux scores.
 
-### Backend
-- `Flask` — API et logique serveur
+    undo Annulation (Revert) : Possibilité d'annuler le dernier tournoi en cas d'erreur (restauration des scores précédents).
 
-### Base de données
-- `PostgreSQL` — Stockage des données des joueurs, tournois et statistiques
+    💾 Backups Automatiques : Sauvegarde de la base de données à chaque modification critique via script shell.
 
-## Architecture
-```
+🛠️ Stack Technique
+
+    Frontend : Python (Flask, Jinja2), Bulma CSS, Chart.js, Vanilla JS.
+
+    Backend : Python (Flask), Algorithme TrueSkill, Bcrypt.
+
+    Base de données : PostgreSQL.
+
+    Infra : Docker, Docker Compose, Nginx (Reverse Proxy).
+
+⚙️ Installation et Démarrage
+1. Cloner le projet
+Bash
+
+git git@github.com:jmsk8/mk_reset_online.git
+cd mk_reset_online
+
+2. Configuration (.env)
+
+Créez un fichier .env à la racine basé sur le modèle ci-dessous.
+
+Note : Le mot de passe admin doit être hashé.
+Bash
+
+# Configuration PostgreSQL
+POSTGRES_USER=mon_user
+POSTGRES_PASSWORD=mon_password
+POSTGRES_DB=tournament_db
+POSTGRES_HOST=db
+
+# Configuration Sécurité Flask
+SECRET_KEY=une_chaine_aleatoire_tres_longue
+
+# Configuration Admin
+# Générez le hash via le script python ci-dessous
+ADMIN_PASSWORD_HASH=$$2b$$12$$ExempleDeHashBcrypt...
+
+    Astuce : Pour générer le hash de votre mot de passe admin, lancez cette commande Python :
+    Python
+
+    python3 -c "import bcrypt; print(bcrypt.hashpw(b'VOTRE_MOT_DE_PASSE', bcrypt.gensalt()).decode())"
+
+3. Lancement avec Docker
+
+L'application est entièrement conteneurisée. Assurez-vous que Docker est lancé.
+Bash
+
+# Construire et lancer les conteneurs (en arrière-plan)
+docker-compose up --build -d
+
+L'application sera accessible sur : http://localhost
+4. Commandes Utiles
+
+Arrêter l'application :
+Bash
+
+docker-compose down
+
+Gérer les sauvegardes (Backup/Restore) : Le projet inclut un script backup.sh à la racine.
+Bash
+
+# Créer une sauvegarde manuelle
+./backup.sh save
+
+# Restaurer une sauvegarde (ex: 2025-01-02)
+./backup.sh restore 2025-01-02
+
+📂 Architecture
+
 mk_reset_online/
-├── frontend/            # Code HTML/CSS/JS
-├── backend/             # Code Flask/Django/Express
-├── docker-compose.yml   # Configuration Docker multi-conteneur
-└── README.md
-```
-
-
-## 🧪 Installation et lancement
-
-### Prérequis
-
-- Python 3.9+
-- PostgreSQL
-- Docker & Docker Compose (n'oubliez pas de démarrer docker)
-
-### Via Docker 
-
-Cloner le projet :
-```bash
-git clone git@github.com:Kemoory/mk_reset_online.git
-cd path/to/mk_reset_online
-```
-Configurer `docker-compose.yml` pour donner l'accès à la base de donner que vous avez créée en amont :
-```bash
-version: '3.8'
-
-services:
-  backend:
-    build:
-      context: ./backEnd
-      dockerfile: Dockerfile.backend
-    ports:
-      - "8080:8080"
-    volumes:
-      - pg_data:/var/lib/postgresql/data
-    environment:
-      - POSTGRES_USER=username
-      - POSTGRES_PASSWORD=mypassword
-      - POSTGRES_DB=database_name
-    restart: unless-stopped
-
-  frontend:
-    build:
-      context: ./frontEnd
-      dockerfile: Dockerfile.frontend
-    ports:
-      - "5000:5000"
-    depends_on:
-      - backend
-    environment:
-      - BACKEND_URL=http://backend:8080
-    restart: unless-stopped
-
-volumes:
-  pg_data:
-```
-Pour exécuter :
-```bash
-docker-compose build
-docker-compose up
-```
-Pour arrêter le processus :
-```bash
-docker-compose down -v 
-```
+├── backEnd/             # API Flask, Logique TrueSkill
+│   ├── backend.py
+│   ├── schema.sql       # Structure DB
+│   └── ...
+├── frontEnd/            # Serveur Web & UI
+│   ├── templates/       # HTML (Jinja2)
+│   ├── static/          # CSS, JS, Images
+│   └── frontend.py
+├── backups/             # Dossier de stockage des dumps SQL
+├── nginx.conf           # Configuration du Reverse Proxy
+├── docker-compose.yml   # Orchestration
+└── backup.sh            # Script de maintenance
