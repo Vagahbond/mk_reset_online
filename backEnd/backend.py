@@ -202,7 +202,7 @@ def calculate_season_stats_logic(date_debut, date_fin):
     }
 
     candidates = {
-        "pas_loin": [], "stakhanov": [], "stonks": [], "not_stonks": [], "victoires": []
+        "pas_loin": [], "stakhanov": [], "stonks": [], "not_stonks": [], "champion": []
     }
 
     for pid, d in data.items():
@@ -225,7 +225,7 @@ def calculate_season_stats_logic(date_debut, date_fin):
 
         candidates["pas_loin"].append({"id": pid, "nom": d["nom"], "val": d["second_places"]})
         candidates["stakhanov"].append({"id": pid, "nom": d["nom"], "val": d["total_points"]})
-        candidates["victoires"].append({"id": pid, "nom": d["nom"], "val": d["victoires"]})
+        candidates["champion"].append({"id": pid, "nom": d["nom"], "val": d["victoires"]})
         
         if d["final_sigma"] < 2.5:
             candidates["stonks"].append({"id": pid, "nom": d["nom"], "val": delta_ts})
@@ -248,7 +248,7 @@ def calculate_season_stats_logic(date_debut, date_fin):
     results["awards"]["stakhanov"] = get_winner(candidates["stakhanov"])
     results["awards"]["stonks"] = get_winner(candidates["stonks"], min_val=0)
     results["awards"]["not_stonks"] = get_winner(candidates["not_stonks"], reverse=False, min_val=0)
-    results["awards"]["victoires"] = get_winner(candidates["victoires"])
+    results["awards"]["champion"] = get_winner(candidates["champion"])
 
     return results
 
@@ -290,15 +290,15 @@ def admin_saisons():
     if request.method == 'GET':
         with get_db_connection() as conn:
             with conn.cursor() as cur:
-                # Ajout de is_active dans la requête
-                cur.execute("SELECT id, nom, date_debut, date_fin, slug, config_awards, is_active FROM saisons ORDER BY date_fin DESC")
+                cur.execute("SELECT id, nom, date_debut, date_fin, slug, config_awards, is_active, victory_condition FROM saisons ORDER BY date_fin DESC")
                 saisons = []
                 for r in cur.fetchall():
                     config = r[5] if r[5] else {} 
                     saisons.append({
                         "id": r[0], "nom": r[1], "date_debut": str(r[2]), 
                         "date_fin": str(r[3]), "slug": r[4], "config": config,
-                        "is_active": r[6] # Important pour le bouton Publier
+                        "is_active": r[6],
+                        "victory_condition": r[7]
                     })
         return jsonify(saisons)
     
@@ -307,6 +307,7 @@ def admin_saisons():
         nom = data.get('nom')
         d_debut = data.get('date_debut')
         d_fin = data.get('date_fin')
+        victory_cond = data.get('victory_condition')
         active_awards = data.get('active_awards', []) 
         
         slug = slugify(nom)
@@ -315,10 +316,10 @@ def admin_saisons():
         try:
             with get_db_connection() as conn:
                 with conn.cursor() as cur:
-                    # On force is_active à FALSE à la création
                     cur.execute(
-                        "INSERT INTO saisons (nom, slug, date_debut, date_fin, config_awards, is_active) VALUES (%s, %s, %s, %s, %s, false) RETURNING id",
-                        (nom, slug, d_debut, d_fin, config_json)
+                        """INSERT INTO saisons (nom, slug, date_debut, date_fin, config_awards, is_active, victory_condition) 
+                           VALUES (%s, %s, %s, %s, %s, false, %s) RETURNING id""",
+                        (nom, slug, d_debut, d_fin, config_json, victory_cond)
                     )
                 conn.commit()
             return jsonify({"status": "success"})
@@ -343,10 +344,10 @@ def save_season_awards(saison_id):
     try:
         with get_db_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute("SELECT date_debut, date_fin, config_awards FROM saisons WHERE id = %s", (saison_id,))
+                cur.execute("SELECT date_debut, date_fin, config_awards, victory_condition FROM saisons WHERE id = %s", (saison_id,))
                 res = cur.fetchone()
                 if not res: return jsonify({"error": "Saison introuvable"}), 404
-                d_debut, d_fin, config = res
+                d_debut, d_fin, config, vic_cond = res
                 
                 active_awards = config.get('active_awards') if config else None
 
@@ -359,7 +360,20 @@ def save_season_awards(saison_id):
                 cur.execute("DELETE FROM awards_obtenus WHERE saison_id = %s", (saison_id,))
                 
                 count = 0
+                
+                if vic_cond and vic_cond in awards_calcules and awards_calcules[vic_cond]:
+                    winner_data = awards_calcules[vic_cond]
+                    if 'moai' in types_map:
+                        cur.execute("""
+                            INSERT INTO awards_obtenus (joueur_id, saison_id, award_id, valeur)
+                            VALUES (%s, %s, %s, %s)
+                        """, (winner_data['id'], saison_id, types_map['moai'], "Saison " + vic_cond))
+                        count += 1
+
                 for code_award, winner_data in awards_calcules.items():
+                    if code_award == vic_cond:
+                        continue
+
                     if active_awards is not None and code_award not in active_awards:
                         continue
 
@@ -374,10 +388,9 @@ def save_season_awards(saison_id):
                         """, (joueur_id, saison_id, award_type_id, valeur))
                         count += 1
                 
-                # ICI : ON PASSE LA SAISON EN ACTIF (PUBLIÉ)
                 cur.execute("UPDATE saisons SET is_active = true WHERE id = %s", (saison_id,))
             conn.commit()
-        return jsonify({"status": "success", "message": f"Saison publiée avec succès ! {count} awards sauvegardés"})
+        return jsonify({"status": "success", "message": f"Saison publiée ! {count} awards (dont Moai) sauvegardés"})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -390,19 +403,15 @@ def get_public_saisons():
                 saisons = []
                 for r in cur.fetchall():
                     nom, slug, d_debut, d_fin = r
-                    
                     duree = (d_fin - d_debut).days
-                    is_yearly = duree > 300
-                    
+                    is_yearly = duree > 300 
                     saisons.append({
-                        "nom": nom, 
-                        "slug": slug,
-                        "date_debut": str(d_debut),
-                        "date_fin": str(d_fin),
+                        "nom": nom, "slug": slug,
+                        "date_debut": str(d_debut), "date_fin": str(d_fin),
                         "is_yearly": is_yearly
                     })
         return jsonify(saisons)
-    except Exception as e:
+    except Exception:
         return jsonify([])
 
 @app.route('/stats/recap/<season_slug>')
@@ -410,26 +419,16 @@ def get_recap_season(season_slug):
     try:
         with get_db_connection() as conn:
             with conn.cursor() as cur:
-                # Vérifie is_active = true, sauf si c'est pour l'admin (mais ici route publique)
-                # Petite astuce: si on est admin, on pourrait vouloir voir le preview. 
-                # Pour simplifier, on va dire que la route publique nécessite is_active 
-                # SAUF si on connait l'URL exacte? Non, restons simple.
-                cur.execute("SELECT id, nom, date_debut, date_fin, config_awards, is_active FROM saisons WHERE slug = %s", (season_slug,))
+                cur.execute("SELECT id, nom, date_debut, date_fin, config_awards, is_active, victory_condition FROM saisons WHERE slug = %s", (season_slug,))
                 res = cur.fetchone()
         
-        if not res:
-            return jsonify({"error": "Saison inconnue"}), 404
+        if not res: return jsonify({"error": "Saison inconnue"}), 404
         
-        s_id, s_nom, s_debut, s_fin, config, is_active = res
-        
-        # Si pas active, on ne montre rien (sauf si on voulait faire un preview admin, mais ici 404 c'est clean)
-        # Mais pour permettre à l'admin de voir le "preview" via le bouton œil avant de publier, 
-        # on doit laisser passer SI la requête vient de l'admin (compliqué via headers token ici).
-        # On va laisser ouvert mais l'affichage dans la liste publique est bloqué par get_public_saisons.
-        # Donc si quelqu'un devine l'URL, il la voit. C'est acceptable pour ce projet.
+        s_id, s_nom, s_debut, s_fin, config, is_active, vic_cond = res
         
         recap_data = calculate_season_stats_logic(s_debut, s_fin)
         recap_data["nom_saison"] = s_nom
+        recap_data["victory_condition"] = vic_cond
 
         active_awards = config.get('active_awards') if config else None
         if active_awards is not None:

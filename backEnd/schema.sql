@@ -4,6 +4,7 @@ SET standard_conforming_strings = on;
 SET client_min_messages = warning;
 SET row_security = off;
 
+-- Nettoyage complet
 DROP TABLE IF EXISTS public.awards_obtenus CASCADE;
 DROP TABLE IF EXISTS public.participations CASCADE;
 DROP TABLE IF EXISTS public.tournois CASCADE;
@@ -13,6 +14,7 @@ DROP TABLE IF EXISTS public.saisons CASCADE;
 DROP TABLE IF EXISTS public.types_awards CASCADE;
 DROP TABLE IF EXISTS public.api_tokens CASCADE;
 
+-- CONFIGURATION
 CREATE TABLE public.configuration (
     key character varying(50) NOT NULL PRIMARY KEY, 
     value character varying(255) NOT NULL
@@ -20,6 +22,7 @@ CREATE TABLE public.configuration (
 ALTER TABLE public.configuration OWNER TO username;
 INSERT INTO public.configuration (key, value) VALUES ('tau', '0.083');
 
+-- JOUEURS
 CREATE TABLE public.joueurs (
     id integer NOT NULL PRIMARY KEY, 
     nom character varying(255) NOT NULL UNIQUE, 
@@ -34,6 +37,7 @@ CREATE SEQUENCE public.joueurs_id_seq AS integer START WITH 1 INCREMENT BY 1 NO 
 ALTER SEQUENCE public.joueurs_id_seq OWNED BY public.joueurs.id;
 ALTER TABLE ONLY public.joueurs ALTER COLUMN id SET DEFAULT nextval('public.joueurs_id_seq'::regclass);
 
+--TOURNOIS
 CREATE TABLE public.tournois (
     id integer NOT NULL PRIMARY KEY, 
     date date NOT NULL
@@ -44,6 +48,7 @@ CREATE SEQUENCE public.tournois_id_seq AS integer START WITH 1 INCREMENT BY 1 NO
 ALTER SEQUENCE public.tournois_id_seq OWNED BY public.tournois.id;
 ALTER TABLE ONLY public.tournois ALTER COLUMN id SET DEFAULT nextval('public.tournois_id_seq'::regclass);
 
+--PARTICIPATIONS
 CREATE TABLE public.participations (
     joueur_id integer NOT NULL, 
     tournoi_id integer NOT NULL, 
@@ -62,6 +67,7 @@ ALTER TABLE public.participations OWNER TO username;
 ALTER TABLE ONLY public.participations ADD CONSTRAINT participations_joueur_id_fkey FOREIGN KEY (joueur_id) REFERENCES public.joueurs(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.participations ADD CONSTRAINT participations_tournoi_id_fkey FOREIGN KEY (tournoi_id) REFERENCES public.tournois(id) ON DELETE CASCADE;
 
+--API TOKENS
 CREATE TABLE public.api_tokens (
     token character varying(64) NOT NULL PRIMARY KEY,
     created_at timestamp without time zone DEFAULT now(),
@@ -69,18 +75,20 @@ CREATE TABLE public.api_tokens (
 );
 ALTER TABLE public.api_tokens OWNER TO username;
 
-
+--SAISONS
 CREATE TABLE public.saisons (
     id serial PRIMARY KEY,
     nom character varying(100) NOT NULL,
     slug character varying(100) NOT NULL UNIQUE,
     date_debut date NOT NULL,
     date_fin date NOT NULL,
-    is_active boolean DEFAULT true,
-    config_awards jsonb DEFAULT '{}'::jsonb
+    is_active boolean DEFAULT false,
+    config_awards jsonb DEFAULT '{}'::jsonb,
+    victory_condition character varying(50)
 );
 ALTER TABLE public.saisons OWNER TO username;
 
+-- TYPES D'AWARDS
 CREATE TABLE public.types_awards (
     id serial PRIMARY KEY,
     code character varying(50) NOT NULL UNIQUE,
@@ -90,6 +98,7 @@ CREATE TABLE public.types_awards (
 );
 ALTER TABLE public.types_awards OWNER TO username;
 
+-- AWARDS OBTENUS
 CREATE TABLE public.awards_obtenus (
     id serial PRIMARY KEY,
     joueur_id integer REFERENCES public.joueurs(id) ON DELETE CASCADE,
@@ -100,3 +109,13 @@ CREATE TABLE public.awards_obtenus (
     UNIQUE(joueur_id, saison_id, award_id)
 );
 ALTER TABLE public.awards_obtenus OWNER TO username;
+
+-- AWARDS PAR DÉFAUT
+
+INSERT INTO public.types_awards (code, nom, emoji, description) VALUES 
+('pas_loin', 'C''était pas loin', '🥈', 'Le plus de 2ème places'),
+('stakhanov', 'Stakhanoviste', '🔨', 'Le plus de points marqués au total'),
+('stonks', 'Stonks', '📈', 'La plus forte progression de TrueSkill'),
+('not_stonks', 'Not Stonks', '📉', 'La plus forte chute de TrueSkill'),
+('champion', 'Champion', '🥇', 'Le plus de victoires (1ère place)'),
+('moai', 'Légende', '🗿', 'Vainqueur de la Saison');

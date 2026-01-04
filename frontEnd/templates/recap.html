@@ -45,7 +45,7 @@
 
         .moai-icon {
             display: inline-block;
-            font-size: 3.5rem;
+            font-size: 3rem;
             animation: moaiPulse 4s ease-in-out infinite;
         }
         
@@ -76,7 +76,7 @@
         <div class="container">
             {% if saison %}
                 
-                <div class="columns is-variable is-6">
+                <div class="columns is-variable is-6 mb-6">
                     <div class="column is-6">
                         <div class="card glass-card fade-in">
                             <header class="card-header">
@@ -144,14 +144,49 @@
                     </div>
                 </div>
 
+                {% set vic_cond = saison.victory_condition %}
+                {% set winner_data = saison.awards[vic_cond] if vic_cond and saison.awards[vic_cond] else None %}
+                
+                {% if winner_data %}
+                <div class="columns is-centered mb-6 fade-in" style="animation-delay: 0.3s">
+                    <div class="column is-6"> 
+                        <div class="card glass-card" style="background: linear-gradient(180deg, rgba(30,41,59,0.8) 0%, rgba(59,130,246,0.15) 100%); border: 1px solid rgba(255,215,0,0.3);">
+                            <div class="card-content has-text-centered py-5">
+                                <p class="heading has-text-warning mb-2 is-size-7">Vainqueur de la Saison</p>
+                                
+                                <div class="moai-icon mb-3">🗿</div>
+                                
+                                <h2 class="title is-3 has-text-white glow-text mb-6">{{ winner_data.nom }}</h2>
+                                
+                                <p class="subtitle is-6 has-text-light is-italic">
+                                    {% if vic_cond == 'stakhanov' %}
+                                        a accumulé <strong class="has-text-warning">{{ winner_data.val }} points</strong> au cours de cette saison.
+                                    {% elif vic_cond == 'champion' %}
+                                        a remporté <strong class="has-text-warning">{{ winner_data.val }} victoires</strong> cette saison.
+                                    {% elif vic_cond == 'stonks' %}
+                                        a réalisé une progression fulgurante de <strong class="has-text-success">+{{ '%0.3f'| format(winner_data.val) }}</strong> points TS.
+                                    {% elif vic_cond == 'pas_loin' %}
+                                        a fait preuve de régularité avec <strong class="has-text-grey-light">{{ winner_data.val }} secondes places</strong>.
+                                    {% elif vic_cond == 'not_stonks' %}
+                                        a survécu malgré une chute de <strong class="has-text-danger">{{ '%0.3f'| format(winner_data.val) }}</strong> points.
+                                    {% else %}
+                                        a remporté le titre sur la catégorie <strong>{{ vic_cond|capitalize }}</strong>.
+                                    {% endif %}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
                 <div class="box glass-card mt-6 fade-in" style="animation-delay: 0.4s">
-                    <h2 class="title is-3 has-text-centered has-text-white mb-6">
-                        <i class="fas fa-medal mr-2"></i> Awards de la Saison
+                    <h2 class="title is-4 has-text-centered has-text-white mb-5">
+                        <i class="fas fa-medal mr-2"></i> Autres Awards
                     </h2>
                     
                     <div class="columns is-multiline is-centered">
                         
-                        {% if 'stakhanov' in saison.awards %}
+                        {% if 'stakhanov' in saison.awards and saison.victory_condition != 'stakhanov' %}
                         <div class="column is-4">
                             <div class="card has-background-transparent border-light h-100">
                                 <div class="card-content has-text-centered">
@@ -171,18 +206,18 @@
                         </div>
                         {% endif %}
 
-                        {% if 'victoires' in saison.awards %}
+                        {% if 'champion' in saison.awards and saison.victory_condition != 'champion' %}
                         <div class="column is-4">
                             <div class="card has-background-transparent border-light h-100">
                                 <div class="card-content has-text-centered">
-                                    <div class="moai-icon">
-                                        🗿
+                                    <div class="award-icon has-text-warning">
+                                        <i class="fas fa-crown"></i>
                                     </div>
-                                    <p class="heading has-text-light mt-3">Moai</p>
+                                    <p class="heading has-text-light">Champion</p>
                                     <p class="is-size-7 mb-2">(Le plus de victoires)</p>
-                                    {% if saison.awards.victoires %}
-                                        <p class="title is-4 has-text-white">{{ saison.awards.victoires.nom }}</p>
-                                        <p class="award-value has-text-grey-lighter">{{ saison.awards.victoires.val }} Victoires</p>
+                                    {% if saison.awards.champion %}
+                                        <p class="title is-4 has-text-white">{{ saison.awards.champion.nom }}</p>
+                                        <p class="award-value has-text-grey-lighter">{{ saison.awards.champion.val }} Victoires</p>
                                     {% else %}
                                         <p class="has-text-grey">-</p>
                                     {% endif %}
@@ -191,7 +226,7 @@
                         </div>
                         {% endif %}
 
-                        {% if 'pas_loin' in saison.awards %}
+                        {% if 'pas_loin' in saison.awards and saison.victory_condition != 'pas_loin' %}
                         <div class="column is-4">
                             <div class="card has-background-transparent border-light h-100">
                                 <div class="card-content has-text-centered">
@@ -215,7 +250,7 @@
 
                     <div class="columns is-centered mt-4">
                         
-                        {% if 'stonks' in saison.awards %}
+                        {% if 'stonks' in saison.awards and saison.victory_condition != 'stonks' %}
                         <div class="column is-5">
                             <div class="card has-background-transparent border-light">
                                 <div class="card-content">
@@ -241,7 +276,7 @@
                         </div>
                         {% endif %}
 
-                        {% if 'not_stonks' in saison.awards %}
+                        {% if 'not_stonks' in saison.awards and saison.victory_condition != 'not_stonks' %}
                         <div class="column is-5">
                             <div class="card has-background-transparent border-light">
                                 <div class="card-content">

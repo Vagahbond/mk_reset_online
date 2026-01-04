@@ -349,12 +349,3 @@ INSERT INTO public.participations (joueur_id, tournoi_id, score, mu, sigma, new_
 SELECT pg_catalog.setval('public.joueurs_id_seq', 29, true);
 SELECT pg_catalog.setval('public.tournois_id_seq', 42, true);
 
--- Initialisation des types d'awards
--- Initialisation des types d'awards
-TRUNCATE TABLE public.types_awards CASCADE;
-INSERT INTO public.types_awards (code, nom, emoji, description) VALUES 
-('pas_loin', 'C''était pas loin', '🥈', 'Le plus de 2ème places'),
-('stakhanov', 'Stakhanoviste', '🔨', 'Le plus de points marqués au total'),
-('stonks', 'Stonks', '📈', 'La plus forte progression de TrueSkill'),
-('not_stonks', 'Not Stonks', '📉', 'La plus forte chute de TrueSkill'),
-('victoires', 'Moai', '🗿', 'Le plus de victoires');
