@@ -39,9 +39,9 @@
                     </span>
                     {% endif %}
                     
-                    {% if stats.percentile_trueskill >= 90 %}
+                    {% if stats.percentile_trueskill != '?' and stats.percentile_trueskill <= 20 %}
                     <span class="tag is-warning ml-2">
-                        <i class="fas fa-star"></i> Top {{ 100 - stats.percentile_trueskill|round|int }}%
+                        <i class="fas fa-star mr-1"></i> Top {{ stats.percentile_trueskill }}%
                     </span>
                     {% endif %}
                 </h2>
@@ -71,7 +71,13 @@
                                     <div class="level-item has-text-centered">
                                         <div>
                                             <p class="heading">Top</p>
-                                            <p class="title">{{ stats.percentile_trueskill }}%</p>
+                                            <p class="title">
+                                                {% if stats.percentile_trueskill != '?' %}
+                                                    {{ stats.percentile_trueskill }}%
+                                                {% else %}
+                                                    <span class="has-text-grey is-size-5">N/A</span>
+                                                {% endif %}
+                                            </p>
                                         </div>
                                     </div>
                                 </div>
@@ -262,6 +268,7 @@
     
         document.addEventListener('DOMContentLoaded', function() {
             var ctx = document.getElementById('scoreChart').getContext('2d');
+           
             var rawData = [
                 {% for tournoi in historique %}
                     {

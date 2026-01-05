@@ -98,29 +98,31 @@ def recalculate_tiers():
     with get_db_connection() as conn:
         try:
             with conn.cursor() as cur:
-                cur.execute("SELECT id, mu, sigma FROM Joueurs")
+                cur.execute("SELECT id, mu, sigma, is_ranked FROM Joueurs")
                 all_players = cur.fetchall()
                 
                 valid_scores = []
-                for pid, mu, sigma in all_players:
-                    if float(sigma) < 4.0:
+                for pid, mu, sigma, is_ranked in all_players:
+                    if is_ranked and float(sigma) < 4.0:
                         score = float(mu) - (3 * float(sigma))
                         valid_scores.append(score)
                         
                 if len(valid_scores) < 2:
-                    return
+                    mean_score = 0
+                    std_dev = 1
+                else:
+                    mean_score = sum(valid_scores) / len(valid_scores)
+                    variance = sum((x - mean_score) ** 2 for x in valid_scores) / len(valid_scores)
+                    std_dev = math.sqrt(variance)
 
-                mean_score = sum(valid_scores) / len(valid_scores)
-                variance = sum((x - mean_score) ** 2 for x in valid_scores) / len(valid_scores)
-                std_dev = math.sqrt(variance)
-
-                for pid, mu, sigma in all_players:
+                for pid, mu, sigma, is_ranked in all_players:
                     mu_val = float(mu)
                     sigma_val = float(sigma)
                     score = mu_val - (3 * sigma_val)
                     
                     new_tier = 'U'
-                    if sigma_val < 4.0:
+                    
+                    if is_ranked and sigma_val < 4.0:
                         if score > (mean_score + std_dev):
                             new_tier = 'S'
                         elif score > mean_score:
@@ -132,7 +134,8 @@ def recalculate_tiers():
                     
                     cur.execute("UPDATE Joueurs SET tier = %s WHERE id = %s", (new_tier, pid))
             conn.commit()
-        except Exception:
+        except Exception as e:
+            print(f"Erreur recalcul tiers: {e}")
             conn.rollback()
 
 def run_auto_backup(tournoi_date_str):
@@ -593,13 +596,49 @@ def get_joueur_stats(nom):
     try:
         with get_db_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute("SELECT id, mu, sigma, score_trueskill, tier FROM Joueurs WHERE nom = %s", (nom,))
+                cur.execute("SELECT id, mu, sigma, score_trueskill, tier, is_ranked FROM Joueurs WHERE nom = %s", (nom,))
                 current_stats = cur.fetchone()
 
                 if not current_stats:
                     return jsonify({"error": "Joueur non trouvé"}), 404
 
-                jid, mu, sigma, score_trueskill, tier = current_stats
+                jid, mu, sigma, score_trueskill, tier, is_ranked = current_stats
+                
+                safe_ts = float(score_trueskill) if score_trueskill is not None else 0.0
+                sigma_val = float(sigma)
+                
+                
+                is_legit = (is_ranked and sigma_val < 4.0)
+                top_percent = "?" 
+
+                if is_legit:
+                    cur.execute("""
+                        SELECT score_trueskill 
+                        FROM Joueurs 
+                        WHERE is_ranked = true 
+                        AND sigma < 4.0
+                    """)
+                    
+                    rows = cur.fetchall()
+                    valid_scores = [float(r[0]) for r in rows if r[0] is not None]
+                    
+                    if len(valid_scores) > 1:
+                        mean = sum(valid_scores) / len(valid_scores)
+                        variance = sum((x - mean) ** 2 for x in valid_scores) / len(valid_scores)
+                        std_dev = math.sqrt(variance)
+                        
+                        if std_dev > 0.0001:
+                            z_score = (safe_ts - mean) / std_dev
+                            
+                            cdf = 0.5 * (1 + math.erf(z_score / math.sqrt(2)))
+                            top_val = (1 - cdf) * 100
+                            
+                            top_percent = round(max(top_val, 0.01), 2)
+                        else:
+                            top_percent = 50.0
+
+                    elif len(valid_scores) == 1:
+                        top_percent = 1.0 
                 
                 cur.execute("""
                     SELECT t.id, t.date, p.score, p.position, p.new_score_trueskill, p.mu, p.sigma
@@ -676,15 +715,6 @@ def get_joueur_stats(nom):
                         prev_ts_val = historique_data[1]['score_trueskill']
                         progression_recente = current_ts_val - prev_ts_val
 
-                safe_ts = float(score_trueskill) if score_trueskill is not None else 0.0
-                cur.execute("SELECT COUNT(id) FROM Joueurs WHERE score_trueskill > %s", (safe_ts,))
-                better_players_count = cur.fetchone()[0]
-                cur.execute("SELECT COUNT(id) FROM Joueurs WHERE score_trueskill IS NOT NULL")
-                total_joueurs = cur.fetchone()[0]
-                
-                rank = better_players_count + 1
-                top_percent = (rank / total_joueurs * 100) if total_joueurs > 0 else 100
-
                 cur.execute("""
                     SELECT t.emoji, t.nom, COUNT(o.id)
                     FROM awards_obtenus o
@@ -700,6 +730,7 @@ def get_joueur_stats(nom):
                 "sigma": round(float(sigma), 3) if sigma else 8.333,
                 "score_trueskill": round(safe_ts, 3),
                 "tier": tier.strip() if tier else '?',
+                "is_ranked": is_ranked,
                 "nombre_tournois": nb_tournois,
                 "victoires": victoires,
                 "ratio_victoires": round(ratio_victoires, 1),
@@ -708,13 +739,14 @@ def get_joueur_stats(nom):
                 "ecart_type_scores": round(ecart_type_scores, 3),
                 "position_moyenne": round(position_moyenne, 1),
                 "progression_recente": round(progression_recente, 3),
-                "percentile_trueskill": round(top_percent, 1)
+                "percentile_trueskill": top_percent 
             },
             "historique": historique_data,
             "awards": awards_list
         })
-    except Exception:
-        return jsonify({"error": "Erreur serveur"}), 500
+    except Exception as e:
+        print(f"ERREUR: {e}")
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/joueurs/noms')
 def get_joueur_names():
@@ -877,12 +909,12 @@ def add_tournament():
                 for joueur in joueurs_data:
                     nom = joueur['nom']
                     score = joueur['score']
-                    cur.execute("SELECT id, mu, sigma FROM Joueurs WHERE nom = %s", (nom,))
+                    cur.execute("SELECT id, mu, sigma, is_ranked FROM Joueurs WHERE nom = %s", (nom,))
                     res = cur.fetchone()
                     if res:
-                        jid, mu, sigma = res
+                        jid, mu, sigma, is_r = res
                     else:
-                        cur.execute("INSERT INTO Joueurs (nom, mu, sigma, tier) VALUES (%s, 50.0, 8.333, 'U') RETURNING id", (nom,))
+                        cur.execute("INSERT INTO Joueurs (nom, mu, sigma, tier, is_ranked) VALUES (%s, 50.0, 8.333, 'U', true) RETURNING id", (nom,))
                         jid = cur.fetchone()[0]
                         mu, sigma = 50.0, 8.333
                     joueurs_ratings[nom] = trueskill.Rating(mu=float(mu), sigma=float(sigma))
@@ -915,49 +947,50 @@ def add_tournament():
                     jid = joueurs_ids_map[nom]
                     present_player_ids.append(jid)
                     
-                    cur.execute("UPDATE Joueurs SET mu=%s, sigma=%s, consecutive_missed=0 WHERE id=%s", (nr.mu, nr.sigma, jid))
+                    cur.execute("UPDATE Joueurs SET mu=%s, sigma=%s, consecutive_missed=0, is_ranked=true WHERE id=%s", (nr.mu, nr.sigma, jid))
                     
                     score_ts = nr.mu - 3 * nr.sigma
-                    cur.execute("SELECT tier FROM Joueurs WHERE id = %s", (jid,))
-                    res_tier = cur.fetchone()
-                    new_tier = res_tier[0] if res_tier else 'U'
-                    
                     cur.execute("""
-                        UPDATE Participations SET mu=%s, sigma=%s, new_score_trueskill=%s, new_tier=%s, position=%s
+                        UPDATE Participations SET mu=%s, sigma=%s, new_score_trueskill=%s, position=%s
                         WHERE tournoi_id=%s AND joueur_id=%s
-                    """, (nr.mu, nr.sigma, score_ts, new_tier, ranks[i], tournoi_id, jid))
+                    """, (nr.mu, nr.sigma, score_ts, ranks[i], tournoi_id, jid))
 
-                cur.execute("SELECT key, value FROM Configuration WHERE key IN ('ghost_enabled', 'ghost_penalty')")
+                cur.execute("SELECT key, value FROM Configuration WHERE key IN ('ghost_enabled', 'ghost_penalty', 'unranked_threshold')")
                 conf_rows = dict(cur.fetchall())
                 ghost_enabled = (conf_rows.get('ghost_enabled') == 'true')
-                penalty_val = float(conf_rows.get('ghost_penalty', 0.1)) 
-                if ghost_enabled:
-                    if present_player_ids:
-                        format_strings = ','.join(['%s'] * len(present_player_ids))
-                        cur.execute(f"SELECT id, sigma, consecutive_missed FROM Joueurs WHERE id NOT IN ({format_strings})", tuple(present_player_ids))
-                    else:
-                        cur.execute("SELECT id, sigma, consecutive_missed FROM Joueurs")
-                    
-                    absents = cur.fetchall()
-                    
-                    for pid, sig, missed in absents:
-                        sig = float(sig)
-                        missed = int(missed) if missed else 0
-                        new_missed = missed + 1
-                        
-                        new_sig = sig
-                        penalty = 0.0
-                        
-                        if new_missed >= 4:
-                            if sig < 4.0:
-                                penalty = penalty_val
-                                new_sig = sig + penalty
-                                cur.execute("""
-                                    INSERT INTO ghost_log (joueur_id, tournoi_id, date, old_sigma, new_sigma, penalty_applied)
-                                    VALUES (%s, %s, %s, %s, %s, %s)
-                                """, (pid, tournoi_id, date_tournoi_str, sig, new_sig, penalty))
+                penalty_val = float(conf_rows.get('ghost_penalty', 0.1))
+                unranked_limit = int(conf_rows.get('unranked_threshold', 10))
 
-                        cur.execute("UPDATE Joueurs SET sigma=%s, consecutive_missed=%s WHERE id=%s", (new_sig, new_missed, pid))
+                if present_player_ids:
+                    format_strings = ','.join(['%s'] * len(present_player_ids))
+                    cur.execute(f"SELECT id, sigma, consecutive_missed, is_ranked FROM Joueurs WHERE id NOT IN ({format_strings})", tuple(present_player_ids))
+                else:
+                    cur.execute("SELECT id, sigma, consecutive_missed, is_ranked FROM Joueurs")
+                
+                absents = cur.fetchall()
+                
+                for pid, sig, missed, is_r in absents:
+                    sig = float(sig)
+                    missed = int(missed) if missed else 0
+                    new_missed = missed + 1
+                    
+                    new_sig = sig
+                    penalty = 0.0
+                    
+                    if ghost_enabled and new_missed >= 4:
+                        if sig < 4.0:
+                            penalty = penalty_val
+                            new_sig = sig + penalty
+                            cur.execute("""
+                                INSERT INTO ghost_log (joueur_id, tournoi_id, date, old_sigma, new_sigma, penalty_applied)
+                                VALUES (%s, %s, %s, %s, %s, %s)
+                            """, (pid, tournoi_id, date_tournoi_str, sig, new_sig, penalty))
+
+                    new_is_ranked = is_r
+                    if new_missed >= unranked_limit:
+                        new_is_ranked = False
+
+                    cur.execute("UPDATE Joueurs SET sigma=%s, consecutive_missed=%s, is_ranked=%s WHERE id=%s", (new_sig, new_missed, new_is_ranked, pid))
             
             conn.commit()
             recalculate_tiers()
@@ -978,17 +1011,21 @@ def revert_last_tournament():
                 res = cur.fetchone()
                 if not res or datetime.now() > res[0]:
                     return jsonify({"error": "Unauthorized"}), 401
+
                 cur.execute("SELECT id, date FROM Tournois ORDER BY date DESC, id DESC LIMIT 1")
                 last_tournoi = cur.fetchone()
                 if not last_tournoi:
                     return jsonify({"message": "Aucun tournoi à annuler."}), 404
+                
                 tournoi_id = last_tournoi[0]
                 tournoi_date = last_tournoi[1]
+
                 cur.execute("SELECT joueur_id, old_mu, old_sigma FROM Participations WHERE tournoi_id = %s", (tournoi_id,))
                 participants = cur.fetchall()
                 for p in participants:
                     if p[1] is None or p[2] is None:
                         return jsonify({"status": "error", "message": "Impossible d'annuler : Ce tournoi est trop ancien."}), 400
+                
                 run_auto_backup(f"PRE_REVERT_{tournoi_date}")
                 
                 for joueur_id, old_mu, old_sigma in participants:
@@ -1001,14 +1038,27 @@ def revert_last_tournament():
                 
                 cur.execute("UPDATE Joueurs SET consecutive_missed = GREATEST(0, consecutive_missed - 1)")
 
+                cur.execute("SELECT value FROM Configuration WHERE key = 'unranked_threshold'")
+                res_conf = cur.fetchone()
+                threshold = int(res_conf[0]) if res_conf else 10
+
+                cur.execute("""
+                    UPDATE Joueurs 
+                    SET is_ranked = true 
+                    WHERE is_ranked = false AND consecutive_missed < %s
+                """, (threshold,))
+                
                 cur.execute("DELETE FROM ghost_log WHERE tournoi_id = %s", (tournoi_id,))
                 cur.execute("DELETE FROM Participations WHERE tournoi_id = %s", (tournoi_id,))
                 cur.execute("DELETE FROM Tournois WHERE id = %s", (tournoi_id,))
+
             conn.commit()
             recalculate_tiers()
             run_auto_backup(f"POST_REVERT_{tournoi_date}")
-            return jsonify({"status": "success", "message": "Dernier tournoi annulé et scores restaurés."}), 200
+            
+            return jsonify({"status": "success", "message": "Dernier tournoi annulé, scores et statuts restaurés."}), 200
     except Exception as e:
+        print(f"ERREUR REVERT: {e}")
         return jsonify({"error": str(e)}), 500
 
 @app.route('/admin/joueurs', methods=['GET'])
@@ -1017,30 +1067,11 @@ def api_get_joueurs():
     try:
         with get_db_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute("SELECT id, nom, mu, sigma, tier FROM Joueurs ORDER BY nom ASC")
-                joueurs = [{"id": r[0], "nom": r[1], "mu": r[2], "sigma": r[3], "tier": r[4].strip() if r[4] else "?"} for r in cur.fetchall()]
+                cur.execute("SELECT id, nom, mu, sigma, tier, is_ranked FROM Joueurs ORDER BY nom ASC")
+                joueurs = [{"id": r[0], "nom": r[1], "mu": r[2], "sigma": r[3], "tier": r[4].strip() if r[4] else "?", "is_ranked": r[5]} for r in cur.fetchall()]
         return jsonify(joueurs)
     except Exception:
         return jsonify({"error": "Erreur serveur"}), 500
-
-@app.route('/admin/joueurs', methods=['POST'])
-@admin_required
-def api_add_joueur():
-    data = request.get_json()
-    try:
-        nom = data['nom']
-        mu = float(data.get('mu', 50.0))
-        sigma = float(data.get('sigma', 8.333))
-        with get_db_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute("INSERT INTO Joueurs (nom, mu, sigma, tier) VALUES (%s, %s, %s, 'U') RETURNING id", 
-                            (nom, mu, sigma))
-                new_id = cur.fetchone()[0]
-            conn.commit()
-            recalculate_tiers()
-        return jsonify({"status": "success", "id": new_id}), 201
-    except Exception:
-        return jsonify({"error": "Erreur serveur"}), 400
 
 @app.route('/admin/joueurs/<int:id>', methods=['PUT'])
 @admin_required
@@ -1050,14 +1081,82 @@ def api_update_joueur(id):
         mu = float(data['mu'])
         sigma = float(data['sigma'])
         nom = data['nom']
+        
+        is_ranked = bool(data.get('is_ranked', True)) 
+        
         with get_db_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute("UPDATE Joueurs SET nom=%s, mu=%s, sigma=%s WHERE id=%s", (nom, mu, sigma, id))
+                cur.execute("UPDATE Joueurs SET nom=%s, mu=%s, sigma=%s, is_ranked=%s WHERE id=%s", (nom, mu, sigma, is_ranked, id))
             conn.commit()
             recalculate_tiers()
+            
+        print(f"[UPDATE] Joueur {id} ({nom}) -> is_ranked={is_ranked}", flush=True)
+        
         return jsonify({"status": "success"})
-    except Exception:
+    except Exception as e:
+        print(f"[ERROR] Update joueur: {e}", flush=True)
         return jsonify({"error": "Erreur serveur"}), 400
+
+@app.route('/delete-tournament/<int:id>', methods=['DELETE'])
+@admin_required
+def delete_tournament(id):
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT value FROM Configuration WHERE key = 'unranked_threshold'")
+                res_conf = cur.fetchone()
+                threshold = int(res_conf[0]) if res_conf else 10
+                print(f"--- Suppression Tournoi {id} (Seuil Reactivation: {threshold}) ---")
+
+                cur.execute("SELECT joueur_id, old_sigma FROM ghost_log WHERE tournoi_id = %s", (id,))
+                ghost_penalties = cur.fetchall()
+                for pid, old_sigma in ghost_penalties:
+                    cur.execute("UPDATE Joueurs SET sigma = %s WHERE id = %s", (old_sigma, pid))
+                    print(f"-> Sigma restauré pour joueur {pid}")
+
+                cur.execute("SELECT joueur_id FROM Participations WHERE tournoi_id = %s", (id,))
+                participants = [r[0] for r in cur.fetchall()]
+                
+                if participants:
+                    format_strings = ','.join(['%s'] * len(participants))
+                    query = f"SELECT id, consecutive_missed, is_ranked, nom FROM Joueurs WHERE id NOT IN ({format_strings})"
+                    cur.execute(query, tuple(participants))
+                else:
+                    cur.execute("SELECT id, consecutive_missed, is_ranked, nom FROM Joueurs")
+                
+                absents = cur.fetchall()
+
+                for pid, missed_count, is_ranked, nom in absents:
+                    current_missed = int(missed_count) if missed_count is not None else 0
+                    current_is_ranked = bool(is_ranked)
+                    
+                    if current_missed > 0:
+                        new_count = current_missed - 1
+
+                        new_is_ranked = current_is_ranked
+                        
+                        if not current_is_ranked and new_count < threshold:
+                            new_is_ranked = True
+                            print(f"-> [REACTIVATION] {nom} (Absences: {current_missed} -> {new_count} < {threshold})")
+                        elif not current_is_ranked:
+                             print(f"-> [RESTE OFF] {nom} (Absences: {current_missed} -> {new_count} toujours >= {threshold})")
+                        
+                        cur.execute("""
+                            UPDATE Joueurs 
+                            SET consecutive_missed = %s, is_ranked = %s 
+                            WHERE id = %s
+                        """, (new_count, new_is_ranked, pid))
+                cur.execute("DELETE FROM Tournois WHERE id = %s", (id,))
+            
+            conn.commit()
+            print("--- Fin Suppression ---")
+            
+            recalculate_tiers()
+            
+        return jsonify({"status": "success", "message": "Tournoi supprimé"})
+    except Exception as e:
+        print(f"ERREUR CRITIQUE DELETE: {e}")
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/admin/joueurs/<int:id>', methods=['DELETE'])
 @admin_required
@@ -1078,12 +1177,18 @@ def get_config():
     try:
         with get_db_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute("SELECT key, value FROM Configuration WHERE key IN ('tau', 'ghost_enabled', 'ghost_penalty')")
+                cur.execute("SELECT key, value FROM Configuration WHERE key IN ('tau', 'ghost_enabled', 'ghost_penalty', 'unranked_threshold')")
                 rows = dict(cur.fetchall())
                 tau = float(rows.get('tau', 0.083))
                 ghost = rows.get('ghost_enabled', 'false') == 'true'
                 ghost_penalty = float(rows.get('ghost_penalty', 0.1))
-        return jsonify({"tau": tau, "ghost_enabled": ghost, "ghost_penalty": ghost_penalty})
+                unranked_threshold = int(rows.get('unranked_threshold', 10))
+        return jsonify({
+            "tau": tau, 
+            "ghost_enabled": ghost, 
+            "ghost_penalty": ghost_penalty,
+            "unranked_threshold": unranked_threshold
+        })
     except Exception:
         return jsonify({"error": "Erreur serveur"}), 500
 
@@ -1095,17 +1200,19 @@ def update_config():
         tau = float(data.get('tau'))
         ghost = str(data.get('ghost_enabled', False)).lower()
         ghost_penalty = float(data.get('ghost_penalty', 0.1))
+        unranked_threshold = int(data.get('unranked_threshold', 10))
         
         with get_db_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute("INSERT INTO Configuration (key, value) VALUES ('tau', %s) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", (str(tau),))
                 cur.execute("INSERT INTO Configuration (key, value) VALUES ('ghost_enabled', %s) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", (ghost,))
                 cur.execute("INSERT INTO Configuration (key, value) VALUES ('ghost_penalty', %s) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", (str(ghost_penalty),))
+                cur.execute("INSERT INTO Configuration (key, value) VALUES ('unranked_threshold', %s) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", (str(unranked_threshold),))
             conn.commit()
         return jsonify({"status": "success"})
     except Exception:
         return jsonify({"error": "Erreur serveur"}), 400
-
+    
 if __name__ == '__main__':
     try:
         sync_sequences()

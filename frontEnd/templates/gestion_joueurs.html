@@ -28,15 +28,27 @@
                         </div>
                         <div class="card-content">
                             <form id="configForm">
-                                <div class="columns is-vcentered">
+                                <div class="columns is-vcentered is-multiline">
                                     <div class="column is-3">
                                         <div class="field">
-                                            <label class="label">Tau (Incertitude)</label>
+                                            <label class="label">Tau</label>
                                             <div class="control">
                                                 <input class="input" type="number" step="0.001" id="configTau" placeholder="0.083">
                                             </div>
+                                            <p class="help">Incertitude (défaut: 0.083)</p>
                                         </div>
                                     </div>
+                                    
+                                    <div class="column is-3">
+                                        <div class="field">
+                                            <label class="label">Limite Unranked</label>
+                                            <div class="control">
+                                                <input class="input" type="number" step="1" id="configUnrankedLimit" placeholder="10">
+                                            </div>
+                                            <p class="help">Nb tournois manqués pour passer Unranked</p>
+                                        </div>
+                                    </div>
+
                                     <div class="column is-6">
                                         <div class="field">
                                             <label class="label">Pénalité d'absence</label>
@@ -48,19 +60,17 @@
                                                     </label>
                                                 </div>
                                                 <div class="control is-expanded">
-                                                    <input class="input" type="number" step="0.01" id="configGhostPenalty" placeholder="Sigma par tournoi (ex: 0.1)">
+                                                    <input class="input" type="number" step="0.01" id="configGhostPenalty" placeholder="Sigma">
                                                 </div>
                                             </div>
-                                            <p class="help is-info">Augmentation du Sigma après 3 absences.</p>
+                                            <p class="help is-info">Hausse du sigma après 4 absences.</p>
                                         </div>
                                     </div>
-                                    <div class="column is-3 has-text-right">
-                                        <div class="field">
-                                            <label class="label">&nbsp;</label>
-                                            <button type="submit" class="button is-info">
-                                                <i class="fas fa-save mr-2"></i> Valider
-                                            </button>
-                                        </div>
+                                    
+                                    <div class="column is-12 has-text-right pt-0">
+                                        <button type="submit" class="button is-info is-small">
+                                            <i class="fas fa-save mr-2"></i> Valider tout
+                                        </button>
                                     </div>
                                 </div>
                             </form>
@@ -85,7 +95,7 @@
                                     </div>
                                     <div class="column is-3">
                                         <div class="field">
-                                            <label class="label">Mu Initial</label>
+                                            <label class="label">Mu Init.</label>
                                             <div class="control">
                                                 <input class="input" type="number" step="0.001" id="newMu" value="50.0">
                                             </div>
@@ -93,7 +103,7 @@
                                     </div>
                                     <div class="column is-3">
                                         <div class="field">
-                                            <label class="label">Sigma Initial</label>
+                                            <label class="label">Sigma Init.</label>
                                             <div class="control">
                                                 <input class="input" type="number" step="0.001" id="newSigma" value="8.333">
                                             </div>
@@ -142,7 +152,7 @@
                             <h3 class="title is-5 has-text-white"><i class="fas fa-info-circle mr-2"></i> Aide Mémoire</h3>
                             <div class="content is-small has-text-grey-light">
                                 <p><strong>Mu :</strong> Niveau moyen estimé du joueur (défaut: 50).</p>
-                                <p><strong>Sigma :</strong> Incertitude sur le niveau (défaut: 8.333). Plus c'est bas, plus le classement est fiable.</p>
+                                <p><strong>Sigma :</strong> Incertitude sur le niveau (défaut: 8.333).</p>
                                 <hr class="has-background-grey-dark">
                                 <p><strong>Tier :</strong> Calculé automatiquement.</p>
                                 <ul>
@@ -150,7 +160,7 @@
                                     <li><span class="tag tier-a is-light">A</span> Excellent</li>
                                     <li><span class="tag tier-b is-light">B</span> Moyen +</li>
                                     <li><span class="tag tier-c is-light">C</span> Débutant</li>
-                                    <li><span class="tag is-white">U</span> Non classé (Sigma > 4)</li>
+                                    <li><span class="tag is-white">U</span> Non classé (ou inactif)</li>
                                 </ul>
                             </div>
                         </div>
@@ -186,6 +196,13 @@
                             <input class="input" type="number" step="0.001" id="editSigma">
                         </div>
                     </div>
+                </div>
+                <div class="field">
+                    <label class="checkbox has-text-white">
+                        <input type="checkbox" id="editIsRanked">
+                        <strong>Joueur Classé (Ranked Status)</strong>
+                    </label>
+                    <p class="help has-text-grey-light">Si décoché, le joueur passe en Tier U (Unranked).</p>
                 </div>
             </section>
             <footer class="modal-card-foot" style="background: rgba(30,41,59,0.9); border-top: 1px solid #3b82f6;">

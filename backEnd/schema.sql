@@ -4,7 +4,8 @@ SET standard_conforming_strings = on;
 SET client_min_messages = warning;
 SET row_security = off;
 
--- Nettoyage complet
+-- Nettoyage complet (Ordre important pour les clés étrangères)
+DROP TABLE IF EXISTS public.ghost_log CASCADE;
 DROP TABLE IF EXISTS public.awards_obtenus CASCADE;
 DROP TABLE IF EXISTS public.participations CASCADE;
 DROP TABLE IF EXISTS public.tournois CASCADE;
@@ -20,7 +21,13 @@ CREATE TABLE public.configuration (
     value character varying(255) NOT NULL
 );
 ALTER TABLE public.configuration OWNER TO username;
-INSERT INTO public.configuration (key, value) VALUES ('tau', '0.083');
+
+-- Valeurs par défaut : Tau, Ghost (désactivé), Pénalité (0.1), Seuil Unranked (10)
+INSERT INTO public.configuration (key, value) VALUES 
+('tau', '0.083'),
+('ghost_enabled', 'false'),
+('ghost_penalty', '0.1'),
+('unranked_threshold', '10');
 
 -- JOUEURS
 CREATE TABLE public.joueurs (
@@ -29,7 +36,9 @@ CREATE TABLE public.joueurs (
     mu double precision DEFAULT 50.0, 
     sigma double precision DEFAULT 8.333, 
     score_trueskill double precision GENERATED ALWAYS AS ((mu - ((3)::double precision * sigma))) STORED, 
-    tier character(1) DEFAULT 'U'::bpchar
+    tier character(1) DEFAULT 'U'::bpchar,
+    consecutive_missed integer DEFAULT 0, -- Compteur d'absences
+    is_ranked boolean DEFAULT true        -- Statut Classé/Non Classé
 );
 ALTER TABLE public.joueurs OWNER TO username;
 
@@ -37,7 +46,7 @@ CREATE SEQUENCE public.joueurs_id_seq AS integer START WITH 1 INCREMENT BY 1 NO 
 ALTER SEQUENCE public.joueurs_id_seq OWNED BY public.joueurs.id;
 ALTER TABLE ONLY public.joueurs ALTER COLUMN id SET DEFAULT nextval('public.joueurs_id_seq'::regclass);
 
---TOURNOIS
+-- TOURNOIS
 CREATE TABLE public.tournois (
     id integer NOT NULL PRIMARY KEY, 
     date date NOT NULL
@@ -48,7 +57,7 @@ CREATE SEQUENCE public.tournois_id_seq AS integer START WITH 1 INCREMENT BY 1 NO
 ALTER SEQUENCE public.tournois_id_seq OWNED BY public.tournois.id;
 ALTER TABLE ONLY public.tournois ALTER COLUMN id SET DEFAULT nextval('public.tournois_id_seq'::regclass);
 
---PARTICIPATIONS
+-- PARTICIPATIONS
 CREATE TABLE public.participations (
     joueur_id integer NOT NULL, 
     tournoi_id integer NOT NULL, 
@@ -67,7 +76,19 @@ ALTER TABLE public.participations OWNER TO username;
 ALTER TABLE ONLY public.participations ADD CONSTRAINT participations_joueur_id_fkey FOREIGN KEY (joueur_id) REFERENCES public.joueurs(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.participations ADD CONSTRAINT participations_tournoi_id_fkey FOREIGN KEY (tournoi_id) REFERENCES public.tournois(id) ON DELETE CASCADE;
 
---API TOKENS
+-- HISTORIQUE FANTÔME (PÉNALITÉS)
+CREATE TABLE public.ghost_log (
+    id serial PRIMARY KEY,
+    joueur_id integer REFERENCES public.joueurs(id) ON DELETE CASCADE,
+    tournoi_id integer REFERENCES public.tournois(id) ON DELETE CASCADE,
+    date date NOT NULL,
+    old_sigma double precision NOT NULL,
+    new_sigma double precision NOT NULL,
+    penalty_applied double precision NOT NULL
+);
+ALTER TABLE public.ghost_log OWNER TO username;
+
+-- API TOKENS
 CREATE TABLE public.api_tokens (
     token character varying(64) NOT NULL PRIMARY KEY,
     created_at timestamp without time zone DEFAULT now(),
@@ -75,7 +96,7 @@ CREATE TABLE public.api_tokens (
 );
 ALTER TABLE public.api_tokens OWNER TO username;
 
---SAISONS
+-- SAISONS
 CREATE TABLE public.saisons (
     id serial PRIMARY KEY,
     nom character varying(100) NOT NULL,
@@ -110,25 +131,7 @@ CREATE TABLE public.awards_obtenus (
 );
 ALTER TABLE public.awards_obtenus OWNER TO username;
 
-INSERT INTO public.configuration (key, value) VALUES ('ghost_enabled', 'false') ON CONFLICT DO NOTHING;
-
--- Modification de la table JOUEURS pour suivre le compteur
-ALTER TABLE public.joueurs ADD COLUMN consecutive_missed integer DEFAULT 0;
-
--- Nouvelle table pour l'historique des pénalités (liée au tournoi pour le revert facile)
-CREATE TABLE public.ghost_log (
-    id serial PRIMARY KEY,
-    joueur_id integer REFERENCES public.joueurs(id) ON DELETE CASCADE,
-    tournoi_id integer REFERENCES public.tournois(id) ON DELETE CASCADE,
-    date date NOT NULL,
-    old_sigma double precision NOT NULL,
-    new_sigma double precision NOT NULL,
-    penalty_applied double precision NOT NULL
-);
-ALTER TABLE public.ghost_log OWNER TO username;
-
-
--- AWARDS PAR DÉFAUT (MIS À JOUR SELON TES RÈGLES)
+-- AWARDS PAR DÉFAUT
 INSERT INTO public.types_awards (code, nom, emoji, description) VALUES 
 ('ez', 'EZ', '🥇', 'Le plus de 1ères places'),
 ('pas_loin', 'C''était pas loin', '🥈', 'Le plus de 2ème places (hors EZ)'),
