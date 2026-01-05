@@ -110,12 +110,11 @@ CREATE TABLE public.awards_obtenus (
 );
 ALTER TABLE public.awards_obtenus OWNER TO username;
 
--- AWARDS PAR DÉFAUT
-
+-- AWARDS PAR DÉFAUT (MIS À JOUR SELON TES RÈGLES)
 INSERT INTO public.types_awards (code, nom, emoji, description) VALUES 
-('pas_loin', 'C''était pas loin', '🥈', 'Le plus de 2ème places'),
+('ez', 'EZ', '🥇', 'Le plus de 1ères places'),
+('pas_loin', 'C''était pas loin', '🥈', 'Le plus de 2ème places (hors EZ)'),
 ('stakhanov', 'Stakhanoviste', '🔨', 'Le plus de points marqués au total'),
-('stonks', 'Stonks', '📈', 'La plus forte progression de TrueSkill'),
-('not_stonks', 'Not Stonks', '📉', 'La plus forte chute de TrueSkill'),
-('champion', 'Champion', '🥇', 'Le plus de victoires (1ère place)'),
+('stonks', 'Stonks', '📈', 'Plus forte progression TrueSkill (sigma < 2.5)'),
+('not_stonks', 'Not Stonks', '📉', 'Plus forte chute TrueSkill (sigma < 2.5)'),
 ('moai', 'Légende', '🗿', 'Vainqueur de la Saison');

@@ -162,38 +162,50 @@ def calculate_season_stats_logic(date_debut, date_fin):
         with conn.cursor() as cur:
             query = """
                 SELECT 
-                    j.id, j.nom, p.score, p.position, p.new_score_trueskill, 
-                    p.old_mu, p.old_sigma, p.mu, p.sigma
+                    j.id, j.nom, p.score, p.position, 
+                    p.new_score_trueskill, p.mu, p.sigma,
+                    t.date
                 FROM Participations p
                 JOIN Tournois t ON p.tournoi_id = t.id
                 JOIN Joueurs j ON p.joueur_id = j.id
                 WHERE t.date >= %s AND t.date <= %s
-                ORDER BY t.date ASC
+                ORDER BY t.date ASC, p.tournoi_id ASC
             """
             cur.execute(query, (date_debut, date_fin))
             rows = cur.fetchall()
 
-    data = {}
-    for pid, nom, score, position, new_ts, old_mu, old_sigma, mu, sigma in rows:
-        if pid not in data:
-            start_ts = (float(old_mu) - 3*float(old_sigma)) if old_mu else 0.0
-            data[pid] = {
-                "id": pid, "nom": nom, "matchs": 0, "total_points": 0,
-                "victoires": 0, "second_places": 0, "total_position": 0,
-                "start_ts": start_ts, "final_ts": 0.0, "final_sigma": 8.333
+    stats = {}
+
+    for pid, nom, score, position, new_ts, mu, sigma, t_date in rows:
+        if pid not in stats:
+            stats[pid] = {
+                "id": pid, "nom": nom,
+                "matchs": 0, "total_points": 0, "total_position": 0,
+                "victoires": 0, "second_places": 0,
+                
+                "history_ts": [],
+                "history_sigma": [],
+                "start_stonks_ts": None,
+                
+                "final_ts": 0.0, "final_sigma": 8.333
             }
         
-        p = data[pid]
+        p = stats[pid]
         p["matchs"] += 1
         p["total_points"] += score
         p["total_position"] += position
+        
         if position == 1: p["victoires"] += 1
         if position == 2: p["second_places"] += 1
         
         current_ts = float(new_ts) if new_ts else 0.0
         current_sigma = float(sigma) if sigma else 8.333
+        
         p["final_ts"] = current_ts
         p["final_sigma"] = current_sigma
+        
+        if current_sigma < 2.5 and p["start_stonks_ts"] is None:
+             p["start_stonks_ts"] = current_ts
 
     results = {
         "classement_points": [],
@@ -202,13 +214,19 @@ def calculate_season_stats_logic(date_debut, date_fin):
     }
 
     candidates = {
-        "pas_loin": [], "stakhanov": [], "stonks": [], "not_stonks": [], "champion": []
+        "ez": [], "pas_loin": [], "stakhanov": [], "stonks": [], "not_stonks": [], "champion": [] # champion mapping for safety
     }
 
-    for pid, d in data.items():
+    for pid, d in stats.items():
         moyenne_pts = d["total_points"] / d["matchs"] if d["matchs"] > 0 else 0
         moyenne_pos = d["total_position"] / d["matchs"] if d["matchs"] > 0 else 0
-        delta_ts = d["final_ts"] - d["start_ts"]
+        
+        delta_ts = 0.0
+        is_eligible_stonks = False
+        
+        if d["start_stonks_ts"] is not None:
+            is_eligible_stonks = True
+            delta_ts = d["final_ts"] - d["start_stonks_ts"]
 
         stat_entry = {
             "nom": d["nom"],
@@ -216,39 +234,50 @@ def calculate_season_stats_logic(date_debut, date_fin):
             "total_points": d["total_points"],
             "victoires": d["victoires"],
             "final_trueskill": round(d["final_ts"], 3),
-            "delta_trueskill": round(delta_ts, 3),
             "moyenne_points": round(moyenne_pts, 2),
             "moyenne_position": round(moyenne_pos, 2)
         }
         results["classement_points"].append(stat_entry)
         results["classement_moyenne"].append(stat_entry)
 
-        candidates["pas_loin"].append({"id": pid, "nom": d["nom"], "val": d["second_places"]})
         candidates["stakhanov"].append({"id": pid, "nom": d["nom"], "val": d["total_points"]})
-        candidates["champion"].append({"id": pid, "nom": d["nom"], "val": d["victoires"]})
+        candidates["ez"].append({"id": pid, "nom": d["nom"], "val": d["victoires"]})
+        candidates["pas_loin"].append({"id": pid, "nom": d["nom"], "val": d["second_places"]}) # On filtrera après
         
-        if d["final_sigma"] < 2.5:
+        if is_eligible_stonks:
             candidates["stonks"].append({"id": pid, "nom": d["nom"], "val": delta_ts})
             candidates["not_stonks"].append({"id": pid, "nom": d["nom"], "val": delta_ts})
 
     results["classement_points"].sort(key=lambda x: (x['total_points'], x['victoires']), reverse=True)
     results["classement_moyenne"].sort(key=lambda x: x['moyenne_points'], reverse=True)
 
-    def get_winner(cat_list, reverse=True, min_val=None):
+    def get_winner(cat_list, reverse=True, min_val=None, excluded_id=None):
+        if excluded_id:
+            cat_list = [c for c in cat_list if c['id'] != excluded_id]
+            
         if not cat_list: return None
+
         cat_list.sort(key=lambda x: x['val'], reverse=reverse)
         winner = cat_list[0]
+        
         if min_val is not None:
             if reverse and winner['val'] <= min_val: return None
             if not reverse and winner['val'] >= min_val: return None
-        if winner['val'] == 0 and reverse: return None
+            
+        if winner['val'] == 0 and reverse: return None 
+        
         return winner
 
-    results["awards"]["pas_loin"] = get_winner(candidates["pas_loin"])
+    winner_ez = get_winner(candidates["ez"])
+    results["awards"]["ez"] = winner_ez
+    results["awards"]["champion"] = winner_ez 
+
+    ez_id = winner_ez['id'] if winner_ez else None
+    results["awards"]["pas_loin"] = get_winner(candidates["pas_loin"], excluded_id=ez_id)
+
     results["awards"]["stakhanov"] = get_winner(candidates["stakhanov"])
-    results["awards"]["stonks"] = get_winner(candidates["stonks"], min_val=0)
-    results["awards"]["not_stonks"] = get_winner(candidates["not_stonks"], reverse=False, min_val=0)
-    results["awards"]["champion"] = get_winner(candidates["champion"])
+    results["awards"]["stonks"] = get_winner(candidates["stonks"], min_val=0.001)
+    results["awards"]["not_stonks"] = get_winner(candidates["not_stonks"], reverse=False, min_val=-0.001)
 
     return results
 
@@ -332,6 +361,7 @@ def delete_saison(saison_id):
     try:
         with get_db_connection() as conn:
             with conn.cursor() as cur:
+                cur.execute("DELETE FROM awards_obtenus WHERE saison_id = %s", (saison_id,))
                 cur.execute("DELETE FROM saisons WHERE id = %s", (saison_id,))
             conn.commit()
         return jsonify({"status": "success"})
@@ -349,7 +379,7 @@ def save_season_awards(saison_id):
                 if not res: return jsonify({"error": "Saison introuvable"}), 404
                 d_debut, d_fin, config, vic_cond = res
                 
-                active_awards = config.get('active_awards') if config else None
+                active_awards = config.get('active_awards') if config else []
 
                 stats = calculate_season_stats_logic(d_debut, d_fin)
                 awards_calcules = stats.get("awards", {})
@@ -361,26 +391,34 @@ def save_season_awards(saison_id):
                 
                 count = 0
                 
-                if vic_cond and vic_cond in awards_calcules and awards_calcules[vic_cond]:
-                    winner_data = awards_calcules[vic_cond]
+                moai_winner = None
+                
+                target_cond = "ez" if vic_cond == "champion" else vic_cond
+                
+                if target_cond and target_cond in awards_calcules and awards_calcules[target_cond]:
+                    moai_winner = awards_calcules[target_cond]
                     if 'moai' in types_map:
                         cur.execute("""
                             INSERT INTO awards_obtenus (joueur_id, saison_id, award_id, valeur)
                             VALUES (%s, %s, %s, %s)
-                        """, (winner_data['id'], saison_id, types_map['moai'], "Saison " + vic_cond))
+                        """, (moai_winner['id'], saison_id, types_map['moai'], "Vainqueur Saison"))
                         count += 1
 
-                for code_award, winner_data in awards_calcules.items():
-                    if code_award == vic_cond:
+                for code_algo, winner_data in awards_calcules.items():
+                    if code_algo == "champion": continue 
+                    check_code = "champion" if code_algo == "ez" else code_algo
+                    
+                    if active_awards is not None and check_code not in active_awards:
                         continue
+                    
+                    if check_code == vic_cond:
+                         pass 
 
-                    if active_awards is not None and code_award not in active_awards:
-                        continue
 
-                    if winner_data and code_award in types_map:
-                        award_type_id = types_map[code_award]
+                    if winner_data and code_algo in types_map:
+                        award_type_id = types_map[code_algo]
                         joueur_id = winner_data['id']
-                        valeur = str(round(winner_data['val'], 2))
+                        valeur = str(round(winner_data['val'], 3))
                         
                         cur.execute("""
                             INSERT INTO awards_obtenus (joueur_id, saison_id, award_id, valeur)
@@ -390,7 +428,7 @@ def save_season_awards(saison_id):
                 
                 cur.execute("UPDATE saisons SET is_active = true WHERE id = %s", (saison_id,))
             conn.commit()
-        return jsonify({"status": "success", "message": f"Saison publiée ! {count} awards (dont Moai) sauvegardés"})
+        return jsonify({"status": "success", "message": f"Saison publiée ! {count} awards sauvegardés."})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
