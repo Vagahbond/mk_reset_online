@@ -6,21 +6,184 @@
     <title>MK Reset</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="../static/css/styles.css">
-    <link rel="stylesheet" href="../static/css/dark-mode.css">
-    <link rel="stylesheet" href="../static/css/animations.css">
-    <link rel="stylesheet" href="../static/css/form-readability.css">
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <link rel="stylesheet" href="/static/css/dark-mode.css">
+    <link rel="stylesheet" href="/static/css/animations.css">
+    <link rel="stylesheet" href="/static/css/form-readability.css">
+
+    <style>
+        /* --- BANNIÈRE STYLE SMK INTRO --- */
+        .hero.smk-snes-banner {
+            position: relative;
+            height: 280px;
+            overflow: hidden;
+            background-color: #5090F0; /* Ciel bleu SNES */
+            padding: 0 !important;
+            border-bottom: 4px solid #000;
+        }
+
+        /* 1. COUCHE CIEL ET NUAGES (Statique ou très lent) */
+        .layer-sky {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 60%;
+            /* Dégradé simple pour le ciel */
+            background: linear-gradient(to bottom, #5090F0 0%, #A0D0FF 100%);
+            z-index: 0;
+        }
+        
+        /* Simulation de nuages pixelisés avec des dégradés */
+        .layer-clouds {
+             position: absolute;
+             top: 10px;
+             width: 200%;
+             height: 100px;
+             background-image: 
+                radial-gradient(circle at 50% 50%, #ffffff 20px, transparent 21px),
+                radial-gradient(circle at 60% 60%, #ffffff 25px, transparent 26px);
+             background-size: 150px 80px;
+             opacity: 0.7;
+             animation: scrollBgSlow 80s linear infinite;
+             z-index: 1;
+        }
+
+        /* 2. COUCHE MONTAGNES LOINTAINES (Défilement lent) */
+        .layer-mountains {
+            position: absolute;
+            bottom: 35%; /* Juste au dessus du sol */
+            left: 0;
+            width: 200%;
+            height: 120px;
+            z-index: 2;
+            /* Simulation de collines vertes pixelisées avec un motif répété */
+            background-image: conic-gradient(from 150deg at 50% 0, transparent 0deg, #00A800 30deg, transparent 60deg);
+            background-size: 100px 100%;
+            background-position: bottom;
+            /* Filtre pour donner un aspect plus "lointain" et rétro */
+            filter: brightness(0.8) contrast(1.2);
+            animation: scrollBgMedium 25s linear infinite;
+        }
+
+        /* 3. COUCHE SOL / PLAGE (Défilement TRES rapide pour la vitesse) */
+        .layer-ground {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 35%; /* Le bas de l'écran */
+            background-color: #E8C070; /* Couleur sable/plage */
+            border-top: 4px solid #008000; /* Bordure d'herbe verte */
+            z-index: 3;
+            
+            /* Création de lignes de vitesse sur le sol */
+            background-image: 
+                repeating-linear-gradient(90deg, transparent 0px, transparent 20px, rgba(160,130,60, 0.6) 20px, rgba(160,130,60, 0.6) 40px);
+            background-size: 200% 100%;
+            /* Animation très rapide */
+            animation: scrollBgFast 1s linear infinite;
+        }
+
+        /* --- LE PERSONNAGE (MARIO) --- */
+        /* Le conteneur qui traverse l'écran */
+        .kart-container-moving {
+            position: absolute;
+            bottom: 25px; /* Posé sur le sol */
+            z-index: 10;
+            width: 100px; /* Ajuste la taille de ton Mario ici */
+            left: -150px; /* Commence hors écran à gauche */
+            /* Animation de traversée */
+            animation: driveAcrossScreen 12s linear infinite;
+        }
+
+        /* L'image PNG fixe à l'intérieur */
+        .kart-static-png {
+            width: 100%;
+            image-rendering: pixelated; /* Garde le look rétro net */
+            filter: drop-shadow(4px 4px 0px rgba(0,0,0,0.4)); /* Ombre portée rétro */
+            
+            /* L'ASTUCE EST ICI : Animation de sautillement */
+            /* Cela donne vie à une image fixe */
+            animation: snesBounce 0.15s infinite alternate ease-in-out;
+        }
+
+
+        /* --- ANIMATIONS KEYFRAMES --- */
+        /* Défilement des décors */
+        @keyframes scrollBgSlow { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+        @keyframes scrollBgMedium { 0% { transform: translateX(0); } 100% { transform: translateX(-100px); } }
+        @keyframes scrollBgFast { 0% { background-position: 0 0; } 100% { background-position: -80px 0; } }
+
+        /* Traversée de l'écran */
+        @keyframes driveAcrossScreen {
+            0% { left: -150px; }
+            100% { left: 110%; } /* Va jusqu'au bout à droite */
+        }
+
+        /* Le sautillement SNES (Engine vibration) */
+        @keyframes snesBounce {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(-3px); } /* Petit saut rapide de 3px */
+        }
+
+
+        /* --- Le Texte par dessus --- */
+        .hero-body-content {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 20; /* Devant tout le reste */
+        }
+
+        .retro-text {
+            color: #fff !important;
+            /* Style de texte SNES très épais */
+            text-shadow: 
+                3px 3px 0 #000, -3px -3px 0 #000, 
+                3px -3px 0 #000, -3px 3px 0 #000,
+                0 3px 0 #000, 0 -3px 0 #000, 
+                3px 0 0 #000, -3px 0 0 #000;
+            font-weight: 900;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            font-size: 3.5rem;
+        }
+        
+        .retro-subtitle {
+             color: #FFD700 !important; /* Jaune doré */
+             text-shadow: 2px 2px 0 #000, -1px -1px 0 #000;
+             font-weight: 800;
+             background-color: rgba(0,0,0,0.5);
+             padding: 5px 20px;
+             border-radius: 12px;
+             border: 2px solid #000;
+        }
+    </style>
 </head>
 <body>
     {% include 'navbar.html' %}
     
-    <section class="hero is-primary is-bold animated-gradient">
-        <div class="hero-body">
+    <section class="hero smk-snes-banner">
+        <div class="layer-sky"></div>
+        <div class="layer-clouds"></div>
+        <div class="layer-mountains"></div>
+        <div class="layer-ground"></div>
+
+        <div class="kart-container-moving">
+            <img src="/static/img/mario-static.png" class="kart-static-png" alt="Mario Kart">
+        </div>
+
+        <div class="hero-body-content">
             <div class="container">
-                <h1 class="title is-1 has-text-centered glow-text">
+                <h1 class="title is-1 has-text-centered retro-text">
                     <i class="fas fa-trophy"></i> MK Reset
                 </h1>
-                <h2 class="subtitle has-text-centered">
+                <h2 class="subtitle has-text-centered retro-subtitle">
                     Suivez les performances et classements des joueurs
                 </h2>
             </div>
@@ -92,7 +255,6 @@
     </section>
 
     {% include 'footer.html' %}
-
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
     <script src="../static/js/script.js"></script>

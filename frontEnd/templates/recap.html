@@ -115,7 +115,7 @@
                         <div class="card glass-card fade-in" style="animation-delay: 0.2s">
                             <header class="card-header">
                                 <p class="card-header-title is-centered has-text-info">
-                                    <i class="fas fa-chart-line mr-2"></i> Performance Moyenne
+                                    <i class="fas fa-chart-bar mr-2"></i> Indice Performance (IP)
                                 </p>
                             </header>
                             <div class="card-content p-0">
@@ -125,7 +125,7 @@
                                             <th class="has-text-centered" style="width: 50px;">#</th>
                                             <th>Joueur</th>
                                             <th class="has-text-right">Moy. Pts</th>
-                                            <th class="has-text-right">Pos. Moy.</th>
+                                            <th class="has-text-right" title="Moyenne pondérée (Base 100) + Bonus">IP Final</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -134,7 +134,21 @@
                                             <td class="has-text-centered font-weight-bold">{{ loop.index }}</td>
                                             <td>{{ j.nom }}</td>
                                             <td class="has-text-right has-text-weight-bold">{{ j.moyenne_points }}</td>
-                                            <td class="has-text-right">{{ j.moyenne_position }}</td>
+                                            <td class="has-text-right">
+                                                {% if j.score_gm is not none %}
+                                                    {% if j.score_gm >= 115 %}
+                                                        <span class="has-text-warning has-text-weight-bold">★ {{ j.score_gm }}</span>
+                                                    {% elif j.score_gm >= 105 %}
+                                                        <span class="has-text-success has-text-weight-bold">{{ j.score_gm }}</span>
+                                                    {% elif j.score_gm >= 95 %}
+                                                        <span class="has-text-white">{{ j.score_gm }}</span>
+                                                    {% else %}
+                                                        <span class="has-text-danger">{{ j.score_gm }}</span>
+                                                    {% endif %}
+                                                {% else %}
+                                                    <span class="has-text-grey-light">-</span>
+                                                {% endif %}
+                                            </td>
                                         </tr>
                                         {% endfor %}
                                     </tbody>
@@ -159,7 +173,14 @@
                                 <h2 class="title is-3 has-text-white glow-text mb-6">{{ winner_data.nom }}</h2>
                                 
                                 <p class="subtitle is-6 has-text-light is-italic">
-                                    {% if vic_cond == 'stakhanov' %}
+                                    {% if vic_cond == 'grand_master' %}
+                                        a dominé la saison avec un Indice de Performance de <strong class="has-text-warning is-size-4">{{ '%0.2f'| format(winner_data.val) }}</strong> !
+                                        <br>
+                                        <span class="is-size-7 has-text-grey-light">
+                                            (IP Base: {{ '%0.2f'| format(winner_data.details.ip_base) }} + 
+                                             Bonus Farming: {{ '%0.1f'| format(winner_data.details.bonus) }})
+                                        </span>
+                                    {% elif vic_cond == 'stakhanov' %}
                                         a accumulé <strong class="has-text-warning">{{ winner_data.val }} points</strong> au cours de cette saison.
                                     {% elif vic_cond == 'champion' %}
                                         a remporté <strong class="has-text-warning">{{ winner_data.val }} victoires</strong> cette saison.
@@ -186,6 +207,30 @@
                     
                     <div class="columns is-multiline is-centered">
                         
+                        {% if 'grand_master' in saison.awards and saison.victory_condition != 'grand_master' %}
+                        <div class="column is-4">
+                            <div class="card has-background-transparent border-light h-100">
+                                <div class="card-content has-text-centered">
+                                    <div class="award-icon has-text-warning">
+                                        <i class="fas fa-crown"></i>
+                                    </div>
+                                    <p class="heading has-text-light">Grand Master</p>
+                                    <p class="is-size-7 mb-2">(Le classement ultime)</p>
+                                    {% if saison.awards.grand_master %}
+                                        <p class="title is-4 has-text-white">{{ saison.awards.grand_master.nom }}</p>
+                                        <p class="award-value has-text-warning">{{ '%0.2f'| format(saison.awards.grand_master.val) }} IP</p>
+                                        <p class="is-size-7 has-text-grey-light">
+                                            (IP Base: {{ '%0.2f'| format(saison.awards.grand_master.details.ip_base) }} + 
+                                             Bonus: {{ '%0.1f'| format(saison.awards.grand_master.details.bonus) }})
+                                        </p>
+                                    {% else %}
+                                        <p class="has-text-grey">-</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+
                         {% if 'stakhanov' in saison.awards and saison.victory_condition != 'stakhanov' %}
                         <div class="column is-4">
                             <div class="card has-background-transparent border-light h-100">
@@ -211,7 +256,7 @@
                             <div class="card has-background-transparent border-light h-100">
                                 <div class="card-content has-text-centered">
                                     <div class="award-icon has-text-warning">
-                                        <i class="fas fa-crown"></i>
+                                        <i class="fas fa-star"></i>
                                     </div>
                                     <p class="heading has-text-light">Champion</p>
                                     <p class="is-size-7 mb-2">(Le plus de victoires)</p>
@@ -246,57 +291,41 @@
                         </div>
                         {% endif %}
 
-                    </div>
-
-                    <div class="columns is-centered mt-4">
-                        
                         {% if 'stonks' in saison.awards and saison.victory_condition != 'stonks' %}
-                        <div class="column is-5">
-                            <div class="card has-background-transparent border-light">
-                                <div class="card-content">
-                                    <div class="level">
-                                        <div class="level-item has-text-centered">
-                                            <div>
-                                                <div class="award-icon has-text-success">
-                                                    <i class="fas fa-chart-line"></i>
-                                                </div>
-                                                <p class="heading has-text-light">Stonks</p>
-                                                <p class="is-size-7 mb-2">(Meilleure progression TS)</p>
-                                                {% if saison.awards.stonks %}
-                                                    <p class="title is-4 has-text-white">{{ saison.awards.stonks.nom }}</p>
-                                                    <p class="award-value has-text-success">+{{ '%0.3f'| format(saison.awards.stonks.val) }}</p>
-                                                {% else %}
-                                                    <p class="has-text-grey">Aucun éligible</p>
-                                                {% endif %}
-                                            </div>
-                                        </div>
+                        <div class="column is-4">
+                            <div class="card has-background-transparent border-light h-100">
+                                <div class="card-content has-text-centered">
+                                    <div class="award-icon has-text-success">
+                                        <i class="fas fa-chart-line"></i>
                                     </div>
+                                    <p class="heading has-text-light">Stonks</p>
+                                    <p class="is-size-7 mb-2">(Meilleure progression TS)</p>
+                                    {% if saison.awards.stonks %}
+                                        <p class="title is-4 has-text-white">{{ saison.awards.stonks.nom }}</p>
+                                        <p class="award-value has-text-success">+{{ '%0.3f'| format(saison.awards.stonks.val) }}</p>
+                                    {% else %}
+                                        <p class="has-text-grey">Aucun éligible</p>
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>
                         {% endif %}
 
                         {% if 'not_stonks' in saison.awards and saison.victory_condition != 'not_stonks' %}
-                        <div class="column is-5">
-                            <div class="card has-background-transparent border-light">
-                                <div class="card-content">
-                                    <div class="level">
-                                        <div class="level-item has-text-centered">
-                                            <div>
-                                                <div class="award-icon has-text-danger">
-                                                    <i class="fas fa-chart-line" style="transform: scaleY(-1);"></i>
-                                                </div>
-                                                <p class="heading has-text-light">Not Stonks</p>
-                                                <p class="is-size-7 mb-2">(Plus grosse chute TS)</p>
-                                                {% if saison.awards.not_stonks %}
-                                                    <p class="title is-4 has-text-white">{{ saison.awards.not_stonks.nom }}</p>
-                                                    <p class="award-value has-text-danger">{{ '%0.3f'| format(saison.awards.not_stonks.val) }}</p>
-                                                {% else %}
-                                                    <p class="has-text-grey">Aucun éligible</p>
-                                                {% endif %}
-                                            </div>
-                                        </div>
+                        <div class="column is-4">
+                            <div class="card has-background-transparent border-light h-100">
+                                <div class="card-content has-text-centered">
+                                    <div class="award-icon has-text-danger">
+                                        <i class="fas fa-chart-line" style="transform: scaleY(-1);"></i>
                                     </div>
+                                    <p class="heading has-text-light">Not Stonks</p>
+                                    <p class="is-size-7 mb-2">(Plus grosse chute TS)</p>
+                                    {% if saison.awards.not_stonks %}
+                                        <p class="title is-4 has-text-white">{{ saison.awards.not_stonks.nom }}</p>
+                                        <p class="award-value has-text-danger">{{ '%0.3f'| format(saison.awards.not_stonks.val) }}</p>
+                                    {% else %}
+                                        <p class="has-text-grey">Aucun éligible</p>
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>

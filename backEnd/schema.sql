@@ -138,4 +138,5 @@ INSERT INTO public.types_awards (code, nom, emoji, description) VALUES
 ('stakhanov', 'Stakhanoviste', '🔨', 'Le plus de points marqués au total'),
 ('stonks', 'Stonks', '📈', 'Plus forte progression TrueSkill (sigma < 2.5)'),
 ('not_stonks', 'Not Stonks', '📉', 'Plus forte chute TrueSkill (sigma < 2.5)'),
+('grand_master', 'Grand Master', '👑', 'Le classement ultime : combine moyenne de points, performance relative et assiduité.'),
 ('moai', 'Légende', '🗿', 'Vainqueur de la Saison');
