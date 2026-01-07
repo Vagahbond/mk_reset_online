@@ -8,7 +8,7 @@
 let
   cfg = config.services.mkReset;
 
-  user = "mk_reset";
+  inherit (cfg) user;
 
   pkg = self.packages.${pkgs.stdenv.hostPlatform.system}.mkReset;
   depsPkg = self.packages.${pkgs.stdenv.hostPlatform.system}.deps;

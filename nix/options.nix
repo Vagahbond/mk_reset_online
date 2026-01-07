@@ -5,6 +5,12 @@ with lib;
     services.mkReset = {
       enable = mkEnableOption "Mk Reset (classements)";
 
+      user = lib.mkOption {
+        type = lib.types.str;
+        description = "service user's username";
+        default = "mk_reset";
+      };
+
       frontend = {
         port = lib.mkOption {
           type = lib.types.str;
@@ -25,7 +31,7 @@ with lib;
         name = lib.mkOption {
           type = lib.types.str;
           description = "DB name";
-          default = "mk_reset";
+          default = config.services.mkReset.user;
         };
 
         user = lib.mkOption {
