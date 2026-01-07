@@ -1,0 +1,138 @@
+/* --- BANNIÈRE STYLE SMK INTRO --- */
+.hero.smk-snes-banner {
+    position: relative;
+    height: 210px; 
+    overflow: hidden;
+    background-color: #f7ce8c; 
+    padding: 0 !important;
+    border-bottom: 4px solid #000;
+}
+
+@media screen and (min-width: 769px) {
+    .hero.smk-snes-banner {
+        height: 360px; 
+    }
+}
+
+/* --- LOGO (Correction Position & Centrage) --- */
+.hero-body-content {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    
+    /* Flexbox pour centrer parfaitement */
+    display: flex;
+    flex-direction: column;
+    align-items: center; /* Centre horizontalement */
+    justify-content: center; /* Centre verticalement */
+    
+    z-index: 200; /* Au-dessus des karts */
+    pointer-events: none; /* Permet de cliquer à travers si besoin */
+}
+
+.mk-logo-responsive {
+    display: block;
+    height: auto;
+    width: auto;
+    
+    /* Taille mobile */
+    max-width: 280px; 
+    
+    /* On le remonte pour qu'il ne touche pas la route */
+    transform: translateY(0px); 
+    
+    filter: drop-shadow(0 0 20px rgba(255,255,255,0.7));
+}
+
+@media screen and (min-width: 769px) {
+    .mk-logo-responsive {
+        /* Taille bureau */
+        max-width: 600px; 
+        
+        /* On le remonte encore plus sur grand écran */
+        transform: translateY(+10px); 
+    }
+}
+
+/* --- FOND DÉFILANT --- */
+.layer-scrolling-bg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 65%; 
+    z-index: 1; 
+    background-image: url('../img/index-banner.png');
+    background-size: 2000px 100%;
+    background-repeat: repeat-x;
+    image-rendering: pixelated;
+    animation: scrollBackgroundInfinite 11s linear infinite;
+}
+
+/* --- SOL / BITUME --- */
+.layer-ground {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    height: 35%;
+    z-index: 3;
+    background-color: #333333;
+}
+
+/* --- VIBREUR --- */
+.layer-ground::before {
+    content: '';
+    position: absolute;
+    top: -12px;
+    left: 0;
+    width: 100%;
+    height: 12px;
+    background-image: 
+        repeating-linear-gradient(90deg, 
+            #cc0000 0px, #cc0000 40px,
+            #ffffff 40px, #ffffff 80px
+        );
+    z-index: 4;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.5); 
+    animation: scrollBgFast var(--road-duration, 0.44s) linear infinite;
+}
+
+/* --- KART (MOUVEMENT GÉRÉ PAR JS) --- */
+.kart-container-moving {
+    position: absolute;
+    /* Z-index géré par JS pour la profondeur */
+    left: 0; 
+    will-change: transform; 
+    width: 50px; 
+}
+
+@media screen and (min-width: 769px) {
+    .kart-container-moving {
+        width: 100px; 
+    }
+}
+
+.kart-static-png {
+    width: 100%;
+    image-rendering: pixelated;
+    filter: drop-shadow(4px 4px 0px rgba(0,0,0,0.4));
+    animation: snesBounce 0.15s infinite alternate ease-in-out;
+}
+
+/* --- KEYFRAMES --- */
+@keyframes scrollBackgroundInfinite {
+    from { background-position: 0 0; }
+    to { background-position: -2000px 0; }
+}
+
+@keyframes scrollBgFast { 
+    0% { background-position: 0 0; } 
+    100% { background-position: -80px 0; } 
+}
+
+@keyframes snesBounce {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(-3px); }
+}
