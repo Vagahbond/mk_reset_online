@@ -25,6 +25,12 @@
             width: 100%;
             display: block;
         }
+        .type-selector {
+            background: rgba(0,0,0,0.2);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
     </style>
 </head>
 <body>
@@ -60,16 +66,31 @@
                                     </div>
                                 </div>
 
+                                <div class="field mt-4 type-selector">
+                                    <label class="label mb-3">Type de Récompense</label>
+                                    <div class="control">
+                                        <label class="radio has-text-white mr-4">
+                                            <input type="radio" name="seasonType" value="normal" checked>
+                                            Récompense de Saison (Moai)
+                                        </label>
+                                        <label class="radio has-text-warning">
+                                            <input type="radio" name="seasonType" value="annual">
+                                            Récompense Annuelle (Super Moai)
+                                        </label>
+                                    </div>
+                                </div>
+
                                 <div class="field mt-4">
                                     <label class="label has-text-warning"><i class="fas fa-trophy mr-1"></i> Condition de Victoire </label>
                                     <div class="control">
                                         <div class="select is-fullwidth is-warning">
                                             <select id="victoryCondition" required>
                                                 <option value="" disabled selected>Choisir l'objectif de saison...</option>
+                                                <option value="Indice de Performance">🎯 Indice de Performance (Algorithme)</option>
                                             </select>
                                         </div>
                                     </div>
-                                    <p class="help has-text-grey">Le vainqueur de cette catégorie remportera le Moai 🗿.</p>
+                                    <p class="help has-text-grey">Le Top 3 de ce classement remportera les Moais (Or, Argent, Bronze).</p>
                                 </div>
 
                                 <div class="field mt-5">
@@ -93,6 +114,7 @@
                                 <thead>
                                     <tr>
                                         <th class="has-text-light">Nom</th>
+                                        <th class="has-text-light">Type</th>
                                         <th class="has-text-light">Statut</th>
                                         <th class="has-text-light">Actions</th>
                                     </tr>
@@ -125,17 +147,16 @@
         try {
             const types = await api('/admin/types-awards', 'GET');
             container.innerHTML = '';
-            selectVictory.innerHTML = '<option value="" disabled selected>Choisir l\'objectif...</option>';
+            // Reset options but keep Grand Master which is static
+            selectVictory.innerHTML = '<option value="" disabled selected>Choisir l\'objectif...</option><option value="Indice de Performance">🎯 Indice de Performance </option>';
             
             types.forEach(type => {
-                if (type.code === 'moai') return;
-
                 const div = document.createElement('div');
                 div.className = 'checkbox-card';
                 div.innerHTML = `
                     <label class="checkbox has-text-white">
                         <input type="checkbox" class="award-checkbox mr-2" value="${type.code}" checked>
-                        <span class="is-size-5 mr-1">${type.emoji}</span>
+                        ${type.emoji.endsWith('.png') ? '<i class="fas fa-image"></i>' : '<span class="is-size-5 mr-1">'+type.emoji+'</span>'}
                         <strong class="has-text-white">${type.nom}</strong>
                         <span class="is-size-7 has-text-grey-light is-italic ml-2">(${type.description || ''})</span>
                     </label>
@@ -144,7 +165,7 @@
 
                 const option = document.createElement('option');
                 option.value = type.code;
-                option.text = `${type.emoji} ${type.nom}`;
+                option.text = `${type.nom}`;
                 selectVictory.appendChild(option);
             });
             
@@ -163,6 +184,10 @@
             let statusBadge = s.is_active 
                 ? '<span class="tag is-success">Publié</span>' 
                 : '<span class="tag is-warning">Brouillon</span>';
+            
+            let typeBadge = s.is_yearly
+                ? '<span class="tag is-warning is-light">Annuel</span>'
+                : '<span class="tag is-info is-light">Saison</span>';
 
             let publishBtn = s.is_active 
                 ? '' 
@@ -176,6 +201,7 @@
                         <strong class="has-text-white">${s.nom}</strong><br>
                         <span class="is-size-7 is-family-code has-text-grey">${s.date_debut} au ${s.date_fin}</span>
                     </td>
+                    <td>${typeBadge}</td>
                     <td style="vertical-align: middle;">${statusBadge}</td>
                     <td>
                         <div class="buttons are-small">
@@ -199,6 +225,7 @@
         const checkboxes = document.querySelectorAll('.award-checkbox:checked');
         const activeAwards = Array.from(checkboxes).map(cb => cb.value);
         const victoryCondition = document.getElementById('victoryCondition').value;
+        const isYearly = document.querySelector('input[name="seasonType"]:checked').value === 'annual';
 
         if (!victoryCondition) {
             alert("Veuillez choisir une condition de victoire !");
@@ -210,7 +237,8 @@
             date_debut: document.getElementById('dateDebut').value,
             date_fin: document.getElementById('dateFin').value,
             active_awards: activeAwards,
-            victory_condition: victoryCondition
+            victory_condition: victoryCondition,
+            is_yearly: isYearly
         };
 
         const res = await api('/admin/saisons', 'POST', data);

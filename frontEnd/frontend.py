@@ -272,6 +272,7 @@ def admin_revert_last():
 def confirmation():
     return render_template("confirmation.html")
 
+
 @app.route('/stats/joueurs')
 def stats_joueurs():
     data, status = backend_request('GET', '/stats/joueurs')

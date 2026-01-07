@@ -4,7 +4,7 @@ SET standard_conforming_strings = on;
 SET client_min_messages = warning;
 SET row_security = off;
 
--- Nettoyage complet (Ordre important pour les clés étrangères)
+-- Nettoyage complet
 DROP TABLE IF EXISTS public.ghost_log CASCADE;
 DROP TABLE IF EXISTS public.awards_obtenus CASCADE;
 DROP TABLE IF EXISTS public.participations CASCADE;
@@ -22,7 +22,6 @@ CREATE TABLE public.configuration (
 );
 ALTER TABLE public.configuration OWNER TO username;
 
--- Valeurs par défaut : Tau, Ghost (désactivé), Pénalité (0.1), Seuil Unranked (10)
 INSERT INTO public.configuration (key, value) VALUES 
 ('tau', '0.083'),
 ('ghost_enabled', 'false'),
@@ -37,8 +36,8 @@ CREATE TABLE public.joueurs (
     sigma double precision DEFAULT 8.333, 
     score_trueskill double precision GENERATED ALWAYS AS ((mu - ((3)::double precision * sigma))) STORED, 
     tier character(1) DEFAULT 'U'::bpchar,
-    consecutive_missed integer DEFAULT 0, -- Compteur d'absences
-    is_ranked boolean DEFAULT true        -- Statut Classé/Non Classé
+    consecutive_missed integer DEFAULT 0,
+    is_ranked boolean DEFAULT true
 );
 ALTER TABLE public.joueurs OWNER TO username;
 
@@ -76,7 +75,7 @@ ALTER TABLE public.participations OWNER TO username;
 ALTER TABLE ONLY public.participations ADD CONSTRAINT participations_joueur_id_fkey FOREIGN KEY (joueur_id) REFERENCES public.joueurs(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.participations ADD CONSTRAINT participations_tournoi_id_fkey FOREIGN KEY (tournoi_id) REFERENCES public.tournois(id) ON DELETE CASCADE;
 
--- HISTORIQUE FANTÔME (PÉNALITÉS)
+-- HISTORIQUE FANTÔME
 CREATE TABLE public.ghost_log (
     id serial PRIMARY KEY,
     joueur_id integer REFERENCES public.joueurs(id) ON DELETE CASCADE,
@@ -96,7 +95,7 @@ CREATE TABLE public.api_tokens (
 );
 ALTER TABLE public.api_tokens OWNER TO username;
 
--- SAISONS
+-- SAISONS (Modifiée pour is_yearly)
 CREATE TABLE public.saisons (
     id serial PRIMARY KEY,
     nom character varying(100) NOT NULL,
@@ -105,7 +104,8 @@ CREATE TABLE public.saisons (
     date_fin date NOT NULL,
     is_active boolean DEFAULT false,
     config_awards jsonb DEFAULT '{}'::jsonb,
-    victory_condition character varying(50)
+    victory_condition character varying(50),
+    is_yearly boolean DEFAULT false
 );
 ALTER TABLE public.saisons OWNER TO username;
 
@@ -114,7 +114,7 @@ CREATE TABLE public.types_awards (
     id serial PRIMARY KEY,
     code character varying(50) NOT NULL UNIQUE,
     nom character varying(100) NOT NULL,
-    emoji character varying(10) NOT NULL,
+    emoji character varying(100) NOT NULL,
     description text
 );
 ALTER TABLE public.types_awards OWNER TO username;
@@ -131,12 +131,25 @@ CREATE TABLE public.awards_obtenus (
 );
 ALTER TABLE public.awards_obtenus OWNER TO username;
 
--- AWARDS PAR DÉFAUT
+-- NOUVELLE HIÉRARCHIE D'AWARDS
 INSERT INTO public.types_awards (code, nom, emoji, description) VALUES 
+-- Récompenses de Saison (Moai)
+('gold_moai', '1er', 'gold_moai.png', 'Vainqueur de Saison'),
+('silver_moai', '2ème', 'silver_moai.png', '2ème de Saison'),
+('bronze_moai', '3ème', 'bronze_moai.png', '3ème de Saison'),
+
+-- Récompenses Annuelles (Super Moai)
+('super_gold_moai', '1er', 'super_gold_moai.png', 'Vainqueur de l''année'),
+('super_silver_moai', '2ème', 'super_silver_moai.png', '2ème de l''année'),
+('super_bronze_moai', '3ème', 'super_bronze_moai.png', '3ème de l''année'),
+
+-- Awards Normaux
 ('ez', 'EZ', '🥇', 'Le plus de 1ères places'),
-('pas_loin', 'C''était pas loin', '🥈', 'Le plus de 2ème places (hors EZ)'),
-('stakhanov', 'Stakhanoviste', '🔨', 'Le plus de points marqués au total'),
-('stonks', 'Stonks', '📈', 'Plus forte progression TrueSkill (sigma < 2.5)'),
-('not_stonks', 'Not Stonks', '📉', 'Plus forte chute TrueSkill (sigma < 2.5)'),
-('grand_master', 'Grand Master', '👑', 'Le classement ultime : combine moyenne de points, performance relative et assiduité.'),
-('moai', 'Légende', '🗿', 'Vainqueur de la Saison');
+('pas_loin', 'C''était pas loin', '🥈', 'Le plus de 2ème places'),
+('stonks', 'Stonks', 'stonks.png', 'Plus forte progression TrueSkill'),
+('not_stonks', 'Not Stonks', 'not_stonks.png', 'Plus forte perte TrueSkill'),
+('stakhanov', 'Stakhanoviste', 'TposingFunky.png', 'Le plus de points marqués au total'),
+('chillguy', 'Chill Guy', 'chillguy.png', 'Le score TrueSkill le plsu stable'),
+
+-- Logic mapping (caché, sert pour la victoire)
+('Indice de Performance', 'Indice de Performance', '🎯', 'Calcul IP');
