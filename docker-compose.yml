@@ -28,6 +28,7 @@ services:
 
     volumes:
       - ./backups:/app/backups
+      - ./backEnd/backend.py:/app/backend.py
 
     environment:
       - PYTHONUNBUFFERED=1

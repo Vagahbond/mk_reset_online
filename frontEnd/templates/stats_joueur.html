@@ -6,10 +6,97 @@
     <title>Statistiques de {{ nom }}</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="../../static/css/styles.css">
-    <link rel="stylesheet" href="../../static/css/dark-mode.css">
-    <link rel="stylesheet" href="../../static/css/animations.css">
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <link rel="stylesheet" href="/static/css/dark-mode.css">
+    <link rel="stylesheet" href="/static/css/animations.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/mario-static.png') }}">
+    <link rel="shortcut icon" href="{{ url_for('static', filename='img/mario-static.png') }}">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/mario-static.png') }}">
+    <style>
+        /* --- NOUVEAUX STYLES POUR LES AWARDS --- */
+        .award-item {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin: 10px 15px; /* Espacement entre les awards */
+            cursor: help; /* Curseur ? pour indiquer qu'il y a une info-bulle */
+            transition: transform 0.3s ease;
+        }
+
+        .award-item:hover {
+            transform: scale(1.2); /* Léger grossissement au survol */
+        }
+
+        /* STYLE NET POUR LES AWARDS NORMAUX (Images PNG) */
+        .award-icon-large {
+            height: 50px;
+            width: auto;
+            /* Drop-shadow avec très peu de flou (1px) pour un contour net */
+            filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.9));
+            margin-bottom: 2px;
+            transition: all 0.3s ease;
+        }
+
+        /* STYLE NET POUR LES AWARDS NORMAUX (Emojis Texte) */
+        .award-text-large {
+            font-size: 3rem;
+            line-height: 1;
+            margin-bottom: 2px;
+            /* Text-shadow net */
+            text-shadow: 0 0 2px rgba(255, 255, 255, 0.9);
+        }
+
+        /* --- ANIMATIONS D'AURA PULSATILE POUR SUPER MOAI --- */
+        /* Définition des keyframes pour la pulsation (Réduit de 25px à 15px) */
+        @keyframes pulseAuraGold {
+            0% { filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.6)); }
+            50% { filter: drop-shadow(0 0 15px rgba(255, 215, 0, 1)); }
+            100% { filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.6)); }
+        }
+        @keyframes pulseAuraSilver {
+            0% { filter: drop-shadow(0 0 5px rgba(192, 192, 192, 0.6)); }
+            50% { filter: drop-shadow(0 0 15px rgba(255, 255, 255, 1)); }
+            100% { filter: drop-shadow(0 0 5px rgba(192, 192, 192, 0.6)); }
+        }
+        @keyframes pulseAuraBronze {
+            0% { filter: drop-shadow(0 0 5px rgba(205, 127, 50, 0.6)); }
+            50% { filter: drop-shadow(0 0 15px rgba(255, 160, 122, 1)); }
+            100% { filter: drop-shadow(0 0 5px rgba(205, 127, 50, 0.6)); }
+        }
+
+        /* Application des animations aux classes spécifiques */
+        /* L'animation écrase le filtre de base de .award-icon-large */
+        .award-icon-large.super-gold {
+            animation: pulseAuraGold 3s infinite ease-in-out;
+        }
+        .award-icon-large.super-silver {
+            animation: pulseAuraSilver 3s infinite ease-in-out;
+        }
+        .award-icon-large.super-bronze {
+            animation: pulseAuraBronze 3s infinite ease-in-out;
+        }
+        /* -------------------------------------------- */
+
+        .award-count {
+            font-size: 0.9rem;
+            color: #fff;
+            font-weight: bold;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+            background-color: rgba(0,0,0,0.3);
+            padding: 0 6px;
+            border-radius: 10px;
+        }
+        /* --------------------------------------- */
+
+        .trophy-icon {
+            max-height: 24px;
+            width: auto;
+            vertical-align: middle;
+            margin-right: 6px;
+        }
+    </style>
 </head>
 <body>
     {% include 'navbar.html' %}
@@ -30,18 +117,18 @@
                     {% elif stats.tier == 'C' %}
                         <span class="tag tier-c">Tier C</span>
                     {% else %}
-                        <span class="tag is-light">Tier {{ stats.tier }}</span>
+                        <span class="tag is-white">Tier {{ stats.tier }}</span>
                     {% endif %}
-                    
+                   
                     {% if stats.victoires >= 3 %}
                     <span class="tag is-danger ml-2">
                         <i class="fas fa-fire"></i> {{ stats.victoires }} victoires
                     </span>
                     {% endif %}
-                    
-                    {% if stats.percentile_trueskill >= 90 %}
+                   
+                    {% if stats.percentile_trueskill != '?' and stats.percentile_trueskill <= 20 %}
                     <span class="tag is-warning ml-2">
-                        <i class="fas fa-star"></i> Top {{ 100 - stats.percentile_trueskill|round|int }}%
+                        <i class="fas fa-star mr-1"></i> Top {{ stats.percentile_trueskill }}%
                     </span>
                     {% endif %}
                 </h2>
@@ -71,11 +158,17 @@
                                     <div class="level-item has-text-centered">
                                         <div>
                                             <p class="heading">Top</p>
-                                            <p class="title">{{ stats.percentile_trueskill }}%</p>
+                                            <p class="title">
+                                                {% if stats.percentile_trueskill != '?' %}
+                                                    {{ stats.percentile_trueskill }}%
+                                                {% else %}
+                                                    <span class="has-text-grey is-size-5">N/A</span>
+                                                {% endif %}
+                                            </p>
                                         </div>
                                     </div>
                                 </div>
-                                
+                              
                                 <table class="table is-fullwidth">
                                     <tbody>
                                         <tr>
@@ -95,6 +188,10 @@
                                             <td class="has-text-right">{{ stats.score_moyen|round(3) }}</td>
                                         </tr>
                                         <tr>
+                                            <td><i class="fas fa-list-ol"></i> Pos. Moyenne</td>
+                                            <td class="has-text-right">{{ stats.position_moyenne }}</td>
+                                        </tr>
+                                        <tr>
                                             <td><i class="fas fa-arrow-up"></i> Meilleur score</td>
                                             <td class="has-text-right">{{ stats.meilleur_score }}</td>
                                         </tr>
@@ -105,21 +202,69 @@
                     </div>
 
                     <div class="box glass-card has-text-centered mt-4 fade-in">
-                        <h4 class="title is-5 has-text-warning mb-3"><i class="fas fa-trophy"></i> Palmarès</h4>
+                        <h4 class="title is-5 has-text-warning mb-3"><i class="fas fa-trophy"></i> Trophées</h4>
+                        {% set ns_trophies = namespace(found=false) %}
                         {% if awards %}
-                            <div class="tags is-centered are-medium">
+                            <div class="is-flex is-justify-content-center is-flex-wrap-wrap">
                                 {% for award in awards %}
-                                <span class="tag is-dark" title="{{ award.nom }}">
-                                    <span class="is-size-5 mr-1">{{ award.emoji }}</span>
-                                    <span class="has-text-weight-bold">x{{ award.count }}</span>
-                                </span>
+                                    {% if 'moai' in award.emoji %}
+                                        {% set ns_trophies.found = true %}
+                                        
+                                        {# --- Logique de détection de l'aura Super Moai --- #}
+                                        {% set aura_class = '' %}
+                                        {% if 'super' in award.emoji %}
+                                            {% if 'gold' in award.emoji %}{% set aura_class = 'super-gold' %}
+                                            {% elif 'silver' in award.emoji %}{% set aura_class = 'super-silver' %}
+                                            {% elif 'bronze' in award.emoji %}{% set aura_class = 'super-bronze' %}
+                                            {% endif %}
+                                        {% endif %}
+                                        {# -------------------------------------------------- #}
+
+                                        <div class="award-item" title="{{ award.description if award.description else award.nom }}">
+                                            {% if award.emoji.endswith('.png') %}
+                                                {# Ajout de la variable aura_class à la liste des classes de l'image #}
+                                                <img src="/static/img/{{ award.emoji }}" class="award-icon-large {{ aura_class }}" alt="{{ award.nom }}">
+                                            {% else %}
+                                                <span class="award-text-large">{{ award.emoji }}</span>
+                                            {% endif %}
+                                            <span class="award-count">x{{ award.count }}</span>
+                                        </div>
+                                    {% endif %}
                                 {% endfor %}
                             </div>
-                        {% else %}
-                            <p class="has-text-grey is-italic is-size-7">Aucun trophée... pour l'instant !</p>
+                        {% endif %}
+                        
+                        {% if not ns_trophies.found %}
+                            <p class="has-text-grey is-italic is-size-7">Aucun trophée de saison.</p>
                         {% endif %}
                     </div>
-                    
+
+                    <div class="box glass-card has-text-centered mt-4 fade-in">
+                        <h4 class="title is-5 has-text-info mb-3"><i class="fas fa-medal"></i> Awards</h4>
+                        {% set ns_awards = namespace(found=false) %}
+                        {% if awards %}
+                            <div class="is-flex is-justify-content-center is-flex-wrap-wrap">
+                                {% for award in awards %}
+                                    {% if 'moai' not in award.emoji %}
+                                        {% set ns_awards.found = true %}
+                                        <div class="award-item" title="{{ award.description if award.description else award.nom }}">
+                                            {% if award.emoji.endswith('.png') %}
+                                                <img src="/static/img/{{ award.emoji }}" class="award-icon-large" alt="{{ award.nom }}">
+                                            {% else %}
+                                                <span class="award-text-large">{{ award.emoji }}</span>
+                                            {% endif %}
+                                            <span class="award-count">x{{ award.count }}</span>
+                                        </div>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+
+                        {% if not ns_awards.found %}
+                            <p class="has-text-grey is-italic is-size-7">Aucun award spécial.</p>
+                        {% endif %}
+                    </div>
+
                     <div class="card glass-card mt-4 fade-in">
                         <div class="card-header">
                             <p class="card-header-title is-centered">
@@ -143,7 +288,7 @@
                                         {% endif %}
                                     </p>
                                 </div>
-                                
+                              
                                 <div class="field">
                                     <label class="label">Progression récente</label>
                                     <progress class="progress {{ 'is-success' if stats.progression_recente > 0 else 'is-danger' if stats.progression_recente < 0 else 'is-light' }}" 
@@ -161,23 +306,11 @@
                                         {% endif %}
                                     </p>
                                 </div>
-                                
-                                <div class="field">
-                                    <label class="label">Position moyenne</label>
-                                    <progress class="progress is-info" 
-                                              value="{{ (10 - stats.position_moyenne) * 10 if stats.position_moyenne else 0 }}" 
-                                              max="100">
-                                        {{ (10 - stats.position_moyenne) * 10 if stats.position_moyenne else 0 }}%
-                                    </progress>
-                                    <p class="help">
-                                        Position moyenne: {{ stats.position_moyenne|round(1) if stats.position_moyenne else 'N/A' }}
-                                    </p>
-                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
-                
+              
                 <div class="column is-8">
                     <div class="card glass-card fade-in">
                         <div class="card-header">
@@ -193,7 +326,7 @@
                     </div>
                 </div>
             </div>
-            
+          
             <div class="columns mt-5">
                 <div class="column is-12">
                     <div class="card glass-card fade-in">
@@ -217,25 +350,34 @@
                                         {% for tournoi in historique %}
                                         <tr class="fade-in" style="animation-delay: {{ loop.index * 0.1 }}s">
                                             <td style="vertical-align: middle;">{{ tournoi.date }}</td>
-                                            <td style="vertical-align: middle;">{{ tournoi.score }}</td>
-                                            <td style="vertical-align: middle;">
-                                                {% if tournoi.position == 1 %}
-                                                    <span class="tag is-warning"><i class="fas fa-crown"></i> 1er</span>
-                                                {% elif tournoi.position == 2 %}
-                                                    <span class="tag is-light"><i class="fas fa-medal"></i> 2ème</span>
-                                                {% elif tournoi.position == 3 %}
-                                                    <span class="tag is-danger"><i class="fas fa-medal"></i> 3ème</span>
-                                                {% else %}
-                                                    <span class="tag is-info">{{ tournoi.position }}ème</span>
-                                                {% endif %}
-                                            </td>
-                                            <td class="has-text-centered" style="vertical-align: middle;">
-                                                <a href="/stats/tournoi/{{ tournoi.id }}" class="button is-small is-primary is-outlined">
-                                                    <span class="icon">
-                                                        <i class="fas fa-eye"></i>
-                                                    </span>
-                                                </a>
-                                            </td>
+                                           
+                                            {% if tournoi.type == 'absence' %}
+                                                <td style="vertical-align: middle;" class="has-text-grey-light">-</td>
+                                                <td style="vertical-align: middle;">
+                                                    <span class="tag is-danger is-light">Absent (Pénalité)</span>
+                                                </td>
+                                                <td class="has-text-centered" style="vertical-align: middle;">
+                                                    <span class="tag is-dark">N/A</span>
+                                                </td>
+                                            {% else %}
+                                                <td style="vertical-align: middle;">{{ tournoi.score }}</td>
+                                                <td style="vertical-align: middle;">
+                                                    {% if tournoi.position == 1 %}
+                                                        <span class="tag is-warning"><i class="fas fa-crown"></i> 1er</span>
+                                                    {% elif tournoi.position == 2 %}
+                                                        <span class="tag is-light"><i class="fas fa-medal"></i> 2ème</span>
+                                                    {% elif tournoi.position == 3 %}
+                                                        <span class="tag is-danger"><i class="fas fa-medal"></i> 3ème</span>
+                                                    {% else %}
+                                                        <span class="tag is-info">{{ tournoi.position }}ème</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td class="has-text-centered" style="vertical-align: middle;">
+                                                    <a href="/stats/tournoi/{{ tournoi.id }}" class="button is-small is-primary is-outlined">
+                                                        <span class="icon"><i class="fas fa-eye"></i></span>
+                                                    </a>
+                                                </td>
+                                            {% endif %}
                                         </tr>
                                         {% endfor %}
                                     </tbody>
@@ -251,10 +393,6 @@
     {% include 'footer.html' %}
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
-    <script src="../../static/js/script.js"></script>
-    <script src="../../static/css/dark-mode.js"></script>
-    <script src="../../static/css/animations.js"></script>
-    
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const fadeElems = document.querySelectorAll('.fade-in');
@@ -265,31 +403,39 @@
     
         document.addEventListener('DOMContentLoaded', function() {
             var ctx = document.getElementById('scoreChart').getContext('2d');
-            
-            var tournois = [
+           
+            var rawData = [
                 {% for tournoi in historique %}
                     {
                         date: "{{ tournoi.date }}",
                         trueskill: {{ tournoi.score_trueskill }},
-                        position: {{ tournoi.position }}
+                        type: "{{ tournoi.type }}" 
                     }{{ "," if not loop.last }}
                 {% endfor %}
             ];
-            
-            tournois.reverse();
-            
-            var dates = tournois.map(function(t) { return t.date; });
-            var scores = tournois.map(function(t) { return t.trueskill; });
-            
+           
+            var chronoData = rawData.slice().reverse();
+           
+            var labels = chronoData.map(t => t.date);
+            var scores = chronoData.map(t => t.trueskill);
+           
+            var pointColors = chronoData.map(d => d.type === 'absence' ? '#ef4444' : 'rgba(54, 162, 235, 1)');
+            var pointRadius = chronoData.map(d => d.type === 'absence' ? 5 : 3);
+            var pointStyles = chronoData.map(d => d.type === 'absence' ? 'rectRot' : 'circle');
+           
             var scoreChart = new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: dates,
+                    labels: labels,
                     datasets: [{
                         label: 'Évolution TrueSkill',
                         data: scores,
                         borderColor: 'rgba(54, 162, 235, 1)',
                         backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                        pointBackgroundColor: pointColors,
+                        pointBorderColor: pointColors,
+                        pointRadius: pointRadius,
+                        pointStyle: pointStyles,
                         fill: true,
                         tension: 0.3
                     }]
@@ -309,7 +455,10 @@
                         tooltip: {
                             callbacks: {
                                 label: function(context) {
-                                    return 'TrueSkill: ' + context.parsed.y;
+                                    var idx = context.dataIndex;
+                                    var item = chronoData[idx];
+                                    var suffix = item.type === 'absence' ? ' (Pénalité Absence)' : '';
+                                    return 'TrueSkill: ' + item.trueskill + suffix;
                                 }
                             }
                         }

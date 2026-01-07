@@ -24,6 +24,42 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
 csrf = CSRFProtect(app)
 
+@app.before_request
+def check_admin_token_validity():
+    """
+    Vérifie à chaque chargement de page si le token admin en session 
+    est toujours valide côté Backend.
+    """
+    # 1. On ignore les fichiers statiques (CSS, JS, Images) pour ne pas ralentir le site
+    if request.path.startswith('/static'):
+        return
+
+    # 2. Si un token est présent dans la session
+    if 'admin_token' in session:
+        token = session['admin_token']
+        try:
+            # 3. On interroge le backend sur la route /admin/check-token
+            # On met un timeout court (1s) pour ne pas bloquer le chargement si le backend rame
+            response = requests.get(
+                f"{app.config.get('BACKEND_URL', 'http://backend:8080')}/admin/check-token",
+                headers={'X-Admin-Token': token},
+                timeout=1
+            )
+            
+            # 4. Si le backend répond autre chose que 200 OK (ex: 403 ou 401), le token est mort
+            if response.status_code != 200:
+                print("⚠️ Token invalide détecté -> Déconnexion forcée.")
+                session.pop('admin_token', None)
+                session.pop('token_start_time', None)
+                
+        except Exception as e:
+            # Si le backend est éteint ou erreur réseau, par sécurité, on déconnecte
+            print(f"⚠️ Erreur vérification token: {e}")
+            # Optionnel : on peut choisir de ne pas déconnecter en cas de simple timeout
+            # Mais par sécurité strict, on peut laisser le code ci-dessous :
+            # session.pop('admin_token', None)
+            pass
+        
 @app.context_processor
 def inject_lifetime():
     total_lifetime = app.permanent_session_lifetime.total_seconds()
@@ -272,17 +308,21 @@ def admin_revert_last():
 def confirmation():
     return render_template("confirmation.html")
 
+
 @app.route('/stats/joueurs')
 def stats_joueurs():
-    data, status = backend_request('GET', '/classement')
+    data, status = backend_request('GET', '/stats/joueurs')
+    
     joueurs = []
-    if status == 200 and isinstance(data, list):
-        joueurs = data
+    dist = {}
+
+    if status == 200 and isinstance(data, dict):
+        joueurs = data.get('joueurs', [])
+        dist = data.get('distribution_tiers', {})
     else:
-        flash("Impossible de récupérer la liste des joueurs.", "warning")
+        joueurs = [] 
+        dist = {}
         
-    data_dist, status_dist = backend_request('GET', '/stats/joueurs')
-    dist = data_dist.get('distribution_tiers', {}) if status_dist == 200 and isinstance(data_dist, dict) else {}
     return render_template("stats_joueurs.html", joueurs=joueurs, distribution_tiers=dist)
 
 @app.route('/stats/tournois')

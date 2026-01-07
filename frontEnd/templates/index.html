@@ -4,25 +4,42 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MK Reset</title>
+    
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="../static/css/styles.css">
-    <link rel="stylesheet" href="../static/css/dark-mode.css">
-    <link rel="stylesheet" href="../static/css/animations.css">
-    <link rel="stylesheet" href="../static/css/form-readability.css">
+    
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dark-mode.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/animations.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/form-readability.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/smk-banner.css') }}">
+    
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/mario/mario-static.png') }}">
+    <link rel="shortcut icon" href="{{ url_for('static', filename='img/mario/mario-static.png') }}">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/mario/mario-static.png') }}">
 </head>
 <body>
     {% include 'navbar.html' %}
     
-    <section class="hero is-primary is-bold animated-gradient">
-        <div class="hero-body">
-            <div class="container">
-                <h1 class="title is-1 has-text-centered glow-text">
-                    <i class="fas fa-trophy"></i> MK Reset
-                </h1>
-                <h2 class="subtitle has-text-centered">
-                    Suivez les performances et classements des joueurs
-                </h2>
+    <section class="hero smk-snes-banner" id="bannerSection">
+        <div class="layer-scrolling-bg"></div>
+        
+        <div class="layer-ground"></div>
+
+        <div id="karts-container" class="karts-layer"></div>
+
+        <div class="hero-body-content">
+            <div class="container has-text-centered">
+                <div class="mb-2 fade-in">
+                    <img src="{{ url_for('static', filename='img/MkReset.png') }}" 
+                         alt="MK Reset Logo"
+                         class="mk-logo-responsive">
+                    
+                    <img id="green-shell-img" 
+                         src="{{ url_for('static', filename='img/green-shell/green-shell1.png') }}" 
+                         alt="Green Shell" 
+                         class="green-shell-anim"
+                         style="display: none;"> </div>
             </div>
         </div>
     </section>
@@ -61,7 +78,11 @@
                                                         <span class="tag is-info">{{ loop.index }}</span>
                                                     {% endif %}
                                                 </td>
-                                                <td>{{ resultat.nom }}</td>
+                                                <td>
+                                                    <a href="/stats/joueur/{{ resultat.nom }}" style="color: inherit; text-decoration: none; font-weight: bold;">
+                                                        {{ resultat.nom }}
+                                                    </a>
+                                                </td>
                                                 <td>
                                                     <div class="score-bar">
                                                         {% set max_score = resultats[0].score if resultats else 1 %}
@@ -89,16 +110,9 @@
 
     {% include 'footer.html' %}
 
-
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
-    <script src="../static/js/script.js"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const fadeElems = document.querySelectorAll('.fade-in');
-            fadeElems.forEach(elem => {
-                elem.classList.add('visible');
-            });
-        });
-    </script>
+    
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/smk-banner.js') }}"></script>
 </body>
 </html>
