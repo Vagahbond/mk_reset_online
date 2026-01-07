@@ -10,31 +10,40 @@
     <link rel="stylesheet" href="/static/css/dark-mode.css">
     <link rel="stylesheet" href="/static/css/animations.css">
     <link rel="stylesheet" href="/static/css/form-readability.css">
+    
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/mario-static.png') }}">
+    <link rel="shortcut icon" href="{{ url_for('static', filename='img/mario-static.png') }}">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/mario-static.png') }}">
 
     <style>
         /* --- BANNIÈRE STYLE SMK INTRO --- */
         .hero.smk-snes-banner {
             position: relative;
-            height: 280px;
+            height: 210px; 
             overflow: hidden;
-            background-color: #5090F0; /* Ciel bleu SNES */
+            background-color: #5090F0;
             padding: 0 !important;
             border-bottom: 4px solid #000;
         }
 
-        /* 1. COUCHE CIEL ET NUAGES (Statique ou très lent) */
+        /* PC : Hauteur augmentée pour descendre la route (310px -> 360px) */
+        @media screen and (min-width: 769px) {
+            .hero.smk-snes-banner {
+                height: 360px; 
+            }
+        }
+
+        /* 1. COUCHE CIEL ET NUAGES */
         .layer-sky {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 60%;
-            /* Dégradé simple pour le ciel */
             background: linear-gradient(to bottom, #5090F0 0%, #A0D0FF 100%);
             z-index: 0;
         }
         
-        /* Simulation de nuages pixelisés avec des dégradés */
         .layer-clouds {
              position: absolute;
              top: 10px;
@@ -49,85 +58,110 @@
              z-index: 1;
         }
 
-        /* 2. COUCHE MONTAGNES LOINTAINES (Défilement lent) */
+        /* 2. COUCHE MONTAGNES LOINTAINES */
         .layer-mountains {
             position: absolute;
-            bottom: 35%; /* Juste au dessus du sol */
+            bottom: 35%; 
             left: 0;
             width: 200%;
             height: 120px;
             z-index: 2;
-            /* Simulation de collines vertes pixelisées avec un motif répété */
             background-image: conic-gradient(from 150deg at 50% 0, transparent 0deg, #00A800 30deg, transparent 60deg);
             background-size: 100px 100%;
             background-position: bottom;
-            /* Filtre pour donner un aspect plus "lointain" et rétro */
             filter: brightness(0.8) contrast(1.2);
             animation: scrollBgMedium 25s linear infinite;
         }
 
-        /* 3. COUCHE SOL / PLAGE (Défilement TRES rapide pour la vitesse) */
+        /* 3. COUCHE SOL / BITUME + VIBREUR */
         .layer-ground {
             position: absolute;
             bottom: 0;
             width: 100%;
-            height: 35%; /* Le bas de l'écran */
-            background-color: #E8C070; /* Couleur sable/plage */
-            border-top: 4px solid #008000; /* Bordure d'herbe verte */
+            height: 35%;
             z-index: 3;
-            
-            /* Création de lignes de vitesse sur le sol */
+            background-color: #333333;
             background-image: 
-                repeating-linear-gradient(90deg, transparent 0px, transparent 20px, rgba(160,130,60, 0.6) 20px, rgba(160,130,60, 0.6) 40px);
-            background-size: 200% 100%;
-            /* Animation très rapide */
+                repeating-linear-gradient(90deg, 
+                    transparent 0px, transparent 40px, 
+                    rgba(255,255,255, 0.1) 40px, rgba(255,255,255, 0.1) 80px);
             animation: scrollBgFast 1s linear infinite;
         }
 
-        /* --- LE PERSONNAGE (MARIO) --- */
-        /* Le conteneur qui traverse l'écran */
-        .kart-container-moving {
+        .layer-ground::before {
+            content: '';
             position: absolute;
-            bottom: 25px; /* Posé sur le sol */
-            z-index: 10;
-            width: 100px; /* Ajuste la taille de ton Mario ici */
-            left: -150px; /* Commence hors écran à gauche */
-            /* Animation de traversée */
-            animation: driveAcrossScreen 12s linear infinite;
+            top: -12px;
+            left: 0;
+            width: 100%;
+            height: 12px;
+            background-image: 
+                repeating-linear-gradient(90deg, 
+                    #cc0000 0px, #cc0000 40px,
+                    #ffffff 40px, #ffffff 80px
+                );
+            animation: scrollBgFast 1s linear infinite;
+            z-index: 4;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.5); 
         }
 
-        /* L'image PNG fixe à l'intérieur */
+        /* --- LE PERSONNAGE (GÉRÉ PAR JS) --- */
+        .kart-container-moving {
+            position: absolute;
+            /* Le bottom est défini aléatoirement par le JS */
+            z-index: 10;
+            left: -150px; 
+            
+            /* --- REGLAGES MOBILE --- */
+            width: 50px; 
+            animation: driveAcrossScreen 4s linear forwards; 
+        }
+
+        /* --- REGLAGES PC --- */
+        @media screen and (min-width: 769px) {
+            .kart-container-moving {
+                width: 100px; 
+                animation-duration: 10s; 
+            }
+        }
+
         .kart-static-png {
             width: 100%;
-            image-rendering: pixelated; /* Garde le look rétro net */
-            filter: drop-shadow(4px 4px 0px rgba(0,0,0,0.4)); /* Ombre portée rétro */
-            
-            /* L'ASTUCE EST ICI : Animation de sautillement */
-            /* Cela donne vie à une image fixe */
+            image-rendering: pixelated;
+            filter: drop-shadow(4px 4px 0px rgba(0,0,0,0.4));
             animation: snesBounce 0.15s infinite alternate ease-in-out;
         }
 
+        /* --- LOGO MK RESET --- */
+        .mk-logo-responsive {
+            height: auto;
+            filter: drop-shadow(0 0 20px rgba(255,255,255,0.7));
+            max-width: 340px; 
+            transform: translateY(-35px); 
+        }
+
+        @media screen and (min-width: 769px) {
+            .mk-logo-responsive {
+                max-width: 650px; 
+                transform: translateY(-60px); 
+            }
+        }
 
         /* --- ANIMATIONS KEYFRAMES --- */
-        /* Défilement des décors */
         @keyframes scrollBgSlow { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
         @keyframes scrollBgMedium { 0% { transform: translateX(0); } 100% { transform: translateX(-100px); } }
         @keyframes scrollBgFast { 0% { background-position: 0 0; } 100% { background-position: -80px 0; } }
 
-        /* Traversée de l'écran */
         @keyframes driveAcrossScreen {
             0% { left: -150px; }
-            100% { left: 110%; } /* Va jusqu'au bout à droite */
+            100% { left: 110%; } 
         }
 
-        /* Le sautillement SNES (Engine vibration) */
         @keyframes snesBounce {
             0% { transform: translateY(0); }
-            100% { transform: translateY(-3px); } /* Petit saut rapide de 3px */
+            100% { transform: translateY(-3px); }
         }
 
-
-        /* --- Le Texte par dessus --- */
         .hero-body-content {
             position: absolute;
             top: 0;
@@ -137,55 +171,26 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            z-index: 20; /* Devant tout le reste */
-        }
-
-        .retro-text {
-            color: #fff !important;
-            /* Style de texte SNES très épais */
-            text-shadow: 
-                3px 3px 0 #000, -3px -3px 0 #000, 
-                3px -3px 0 #000, -3px 3px 0 #000,
-                0 3px 0 #000, 0 -3px 0 #000, 
-                3px 0 0 #000, -3px 0 0 #000;
-            font-weight: 900;
-            letter-spacing: 2px;
-            text-transform: uppercase;
-            font-size: 3.5rem;
-        }
-        
-        .retro-subtitle {
-             color: #FFD700 !important; /* Jaune doré */
-             text-shadow: 2px 2px 0 #000, -1px -1px 0 #000;
-             font-weight: 800;
-             background-color: rgba(0,0,0,0.5);
-             padding: 5px 20px;
-             border-radius: 12px;
-             border: 2px solid #000;
+            z-index: 20;
         }
     </style>
 </head>
 <body>
     {% include 'navbar.html' %}
     
-    <section class="hero smk-snes-banner">
+    <section class="hero smk-snes-banner" id="bannerSection">
         <div class="layer-sky"></div>
         <div class="layer-clouds"></div>
         <div class="layer-mountains"></div>
         <div class="layer-ground"></div>
 
-        <div class="kart-container-moving">
-            <img src="/static/img/mario-static.png" class="kart-static-png" alt="Mario Kart">
-        </div>
-
         <div class="hero-body-content">
-            <div class="container">
-                <h1 class="title is-1 has-text-centered retro-text">
-                    <i class="fas fa-trophy"></i> MK Reset
-                </h1>
-                <h2 class="subtitle has-text-centered retro-subtitle">
-                    Suivez les performances et classements des joueurs
-                </h2>
+            <div class="container has-text-centered">
+                <div class="mb-2 fade-in">
+                    <img src="{{ url_for('static', filename='img/MkReset.png') }}" 
+                         alt="MK Reset Logo"
+                         class="mk-logo-responsive">
+                </div>
             </div>
         </div>
     </section>
@@ -264,6 +269,57 @@
             fadeElems.forEach(elem => {
                 elem.classList.add('visible');
             });
+
+            const banner = document.getElementById('bannerSection');
+
+            // --- LISTE DES PERSONNAGES ---
+            const kartList = [
+                'mario-static.png',
+                'luigi-static.png',
+                'peach-static.png',
+                'toad-static.png',
+                'yoshi-static.png',
+                'bowser-static.png',
+                'dk-static.png',
+                'koopa-static.png'
+            ];
+
+            function launchKart(index) {
+                const charFile = kartList[index];
+
+                const kartContainer = document.createElement('div');
+                kartContainer.className = 'kart-container-moving';
+                
+                // Position aléatoire (profondeur)
+                const randomBottom = Math.floor(Math.random() * 40) + 5;
+                kartContainer.style.bottom = `${randomBottom}px`;
+
+                const img = document.createElement('img');
+                img.src = `/static/img/${charFile}`;
+                img.alt = "Kart";
+                img.className = "kart-static-png";
+                
+                kartContainer.appendChild(img);
+                banner.appendChild(kartContainer);
+
+                kartContainer.addEventListener('animationend', () => {
+                    kartContainer.remove();
+                });
+
+                // --- REGLAGES DU DÉLAI (ESPACEMENT) ---
+                const minDelay = 400;  // 0.4s (Très proches)
+                const maxDelay = 2800; // 2.8s (Gros écart)
+                
+                const randomDelay = Math.floor(Math.random() * (maxDelay - minDelay + 1)) + minDelay;
+
+                setTimeout(() => {
+                    const nextIndex = (index + 1) % kartList.length;
+                    launchKart(nextIndex);
+                }, randomDelay);
+            }
+
+            // Démarrage
+            launchKart(0);
         });
     </script>
 </body>
